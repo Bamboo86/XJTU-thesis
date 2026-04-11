@@ -1,338 +1,97 @@
 % !TeX root = ../main.tex
 
-\xchapter{浮动体：图表}{Floating: Figures, Tables}
+\xchapter{任务概述与相关理论}{Task Overview and Related Theory}
 
-请先注意，在\LaTeX 中，图表不一定要像 Word 一样被固定在某个区域，程序会自动根据上下文为图片选择合适的位置，同时还有具有超链接的交叉引用自动定位图片位置，因此不要强求图片或表格一定处于某个位置。如非要定位，则应在浮动体环境中使用\clist{[H]}选项指定位置。
+本章围绕平面几何问题求解任务，对本文后续研究所涉及的基本问题和相关技术进行说明。首先，从任务层面对平面几何问题求解的类型、特点和形式化表示进行介绍，并对本文使用的“长链条”概念作出统一定义；其次，从技术层面对后续研究中涉及的大语言模型、微调方法和强化学习方法进行概述，重点说明这些方法的基本原理及其在复杂推理任务中的一般作用。
 
-\begin{tcolorbox}[colback=red!5!white,colframe=red!75!black]
-  \begin{enumerate}[leftmargin=0.5cm]
-    \item 图、表、公式等一律用阿拉伯数字分章连续编号，如 图1-3、表2-1、（3-2）等。图、表、公式等与正文之间间隔0.5行。
+\xsection{任务定义}{Task Definition}
 
-    \item 图应有图题，表应有表题，并分别置于图号和表号之后，图号和图题应置于图下方的居中位置，表号和表题应置于表上方的居中位置。引用图或表应在图题或表题右上角标出文献来源。
+几何问题求解可以看作一种结合文本理解、图形理解与逻辑推理的任务。给定题目文本和对应的几何图像，模型需要识别其中的几何对象、条件关系和求解目标，在此基础上完成推导，并输出求解结果。与一般的数学问答不同，几何问题求解往往既依赖语言信息，也依赖图形结构，因此具有较强的多模态特征。
 
-    \item 若图或表中有附注，采用英文小写字母顺序编号，附注写在图或表的下方。
-  \end{enumerate}
-\end{tcolorbox}
+本文关注的是平面几何问题求解（Plane Geometry Problem Solving, PGPS）。研究范围限定在中学课程标准下的欧氏平面几何，不涉及解析几何、立体几何等其他分支。如图~\ref{fig:task_difference}所示，区别于解析几何的代数化求解与立体几何的空间构建，本任务更侧重于考察模型在二维平面内基于基本公理与定理的逻辑推导能力。
 
-\xsection{图}{Figures}
-
-
-\begin{tcolorbox}[colback=red!5!white,colframe=red!75!black]
-  \begin{enumerate}[leftmargin=0.5cm]
-    \item 插图须紧跟文述。在正文中，一般应先见图号及图的内容后再见图，一般情况下不能提前见图，特殊情况须延后的插图不应跨节；
-    \item 提供照片应大小适宜，主题明确，层次清楚，金相照片一定要有比例尺；
-    \item 图应具有“自明性”，即只看图、图题和图例，不阅读正文，就可理解图意。图中的标目是说明坐标轴物理意义的项目，它是由物理量的符号或名称和相应的单位组成。物理量的符号由斜体字母标注，单位的符号使用正体字母标注，量与单位间用斜线隔开。例如：$I/\SI{}{A}$，$\rho/\SI{}{kg\cdot m^{-3}}$，$F/\SI{}{N}$，$v/\SI{}{m\cdot s^{-1}}$等等；
-    \item 图中用字为五号，如排列过密，用五号字有困难时，可小于五号字，但不得小于七号字；
-    \item 图尺寸的\textbf{一般宽高比}应为 \SI{6.67}{cm}$\times$\SI{5.00}{cm}。特殊情况下，也可为 \SI{9.00}{cm}$\times$\SI{6.75}{cm}，或 \SI{13.5}{cm}$\times$\SI{9.00}{cm}。总之，一篇论文中，同类图片的大小应该一致，编排美观、整齐；
-    \item 一幅图如有若干幅\textbf{分图}，均应编分图号，用(a)，(b)，(c),...... 按顺序编排，且各分图的分题注直接列在各自分图的正下方，总题注列在所有分图的下方正中「
-  \end{enumerate}
-\end{tcolorbox}
-
-\xsubsection{单张图片的使用}{Single Figure}
-
-\begin{texcodeonly}[]{}
-  \begin{figure}[h]
+\begin{figure}[htbp]
     \centering
-    \includegraphics[width=.5\textwidth]{xjtu.pdf}
-    \caption{校徽}
-  \end{figure}
-\end{texcodeonly}
-
-\begin{figure}[h]
-  \centering
-  \includegraphics[width=.5\textwidth]{xjtu.pdf}
-  \caption{校徽}
+    \includegraphics[width=1.0\textwidth]{c2_difference.png}
+    \caption{平面几何与其他几何分支的区别}
+    \label{fig:task_difference}
 \end{figure}
 
-一些图片下方的文字。一些图片下方的文字。一些图片下方的文字。一些图片下方的文字。一些图片下方的文字。一些图片下方的文字。一些图片下方的文字。一些图片下方的文字。一些图片下方的文字。一些图片下方的文字。一些图片下方的文字。一些图片下方的文字。一些图片下方的文字。
+\xsubsection{任务特点}{Task Characteristics}
 
-\xsubsection{多张图片：应该使用 subcaption 而不是 subfigure}{Use subcaption instead of subfigure}
+从求解目标来看，平面几何问题通常可以分为数值计算类问题和结论证明类问题。数值计算类问题主要要求求出长度、角度、面积等具体结果，输出形式通常是数值或者表达式；结论证明类问题则要求判断并证明某一几何关系成立，例如线段相等、角相等、直线平行或垂直等。两类问题在答案形式上有所不同，前者偏向结果求解，后者偏向关系论证，但二者都建立在对题设条件和图形关系的理解之上。
 
-\begin{texcodeonly}[]{}
-  \begin{figure}[h]
-    \begin{subfigure}[b]{0.49\linewidth}
-        \centering
-        \includegraphics[width=.5\textwidth]{xjtu.pdf}
-        \subcaption{校名}
-    \end{subfigure}
-    \begin{subfigure}[b]{0.49\linewidth}
-        \centering
-        \includegraphics[width=.5\textwidth]{xjtu.pdf}
-        \subcaption{校名}
-        \label{subfigure:icon}
-    \end{subfigure}
-    \caption{校徽}
-    \label{fig:icon}
-  \end{figure}
-\end{texcodeonly}
+从题目呈现方式来看，平面几何问题又常见于选择题、填空题和解答题。选择题和填空题通常对答案形式要求较为简洁，而解答题一般要求写出较完整的中间过程。从研究任务本身看，这种外在形式上的区别并不改变问题的核心性质。无论题目以哪种形式出现，模型都需要识别题干中的已知条件、理解图中的几何结构，并围绕求解目标组织相应的信息，并输出中间过程便于阅读和理解。
 
-\begin{figure}[h]
-  \begin{subfigure}[b]{0.49\linewidth}
-      \centering
-      \includegraphics[width=.5\textwidth]{xjtu.pdf}
-      \subcaption{校名}
-  \end{subfigure}
-  \begin{subfigure}[b]{0.49\linewidth}
-      \centering
-      \includegraphics[width=.5\textwidth]{xjtu.pdf}
-      \subcaption{校名}
-      \label{subfigure:icon}
-  \end{subfigure}
-  \caption{校徽}
-  \label{figure:icon}
-\end{figure}
+平面几何问题求解的一个突出特点，是求解往往具有较强的步骤性和依赖性。很多题目不能直接由已知条件一步得到答案，而是需要先推出若干中间结论，再逐步逼近最终结果。各个步骤之间通常存在前后依赖关系，前面结论是否成立，会直接影响后续推导能否继续进行。这说明，平面几何问题求解不仅是对最终答案的判断，也是对整个求解链条的组织过程。对于这类任务，模型不仅需要给出结果，还需要在条件使用、关系建立和结论推进上保持一致性。
 
-\xsubsection{多张子图分页}{Break multiple figures}
+\xsubsection{长链条问题定义}{Definition of Long-chain Problems}
 
-\newcommand{\subfigg}{
-  \begin{subfigure}[b]{0.49\linewidth}
+本文将长链条几何问题定义为：在人类专家的标准解题过程中，平均需要至少 5 个及以上逻辑推理步骤的问题。这里所说的“逻辑推理步骤”，是指从已有条件或前一步结论出发，依据几何定义、性质或公理等，推出一个新的中间结论的过程。单纯的算式运算、没有直接产生新结论的步骤描述等过程，一般不单独作为一步来计算。
+
+在本文中，“长链条”用于概括几何题在求解过程中中间推导链较长、前后依赖较强的特点。为了能具体衡量这一特征，在数据统计、难度划分等环节中，使用了“逻辑推理步骤数”作为指标。“长链条”强调的是题目的整体推导特征，而“步骤数”则是用来评估这一特征的具体依据，因此后文在统计或标注场景中仍会保留“步骤”相关表述。
+
+\xsubsection{任务形式化定义}{Formal Definition of the Task}
+
+为了便于对平面几何问题求解任务进行统一描述，本节从形式化角度对其输入、输出和目标进行建模。设题目文本序列表示为 $T$，原始几何图像特征表示为 $D \in \mathbb{R}^{H \times W \times C}$，求解目标表示为 $Q$。在此基础上，几何问题求解系统需要根据输入信息生成相应的推理序列 $S$，并给出最终答案 $A$。
+
+设几何问题求解模型为由参数 $\theta$ 构建的函数 $M_{\theta}$，其目标是从输入中学习题目条件、图形结构与求解目标之间的映射关系，并输出合理的推导过程与求解结果。该求解过程可以统一建模为最大化如下给定输入条件下的联合后验概率问题：
+\begin{equation}
+    (S^*, A^*) = \operatorname*{arg\,max}_{S \in \mathcal{S}, A \in \mathcal{A}} P(S, A \mid T, D, Q; \theta),
+\end{equation}
+其中，$\mathcal{S}$ 表示所有合法的欧氏平面几何推理序列空间，$\mathcal{A}$ 表示所有的候选答案空间。
+
+上述形式化定义表明，平面几何问题求解既涉及最终结果的生成，也涉及中间推理过程的组织。由于模型需要同时利用题目文本和几何图像中的信息，这一任务可以统一表示为图文联合条件下的推理与求解过程。这样的形式化描述也为后续模型设计与实验分析提供了统一框架。
+\xsection{相关技术介绍}{Related Technology Introduction}
+
+本节介绍与平面几何问题求解相关的几类基础技术，主要包括大语言模型、微调方法和强化学习方法。这些技术已经在自然语言处理、多模态理解和复杂推理等任务中得到广泛研究。
+
+\xsubsection{大语言模型}{Large Language Models}
+
+大语言模型（Large Language Models, LLMs）是在预训练语言模型基础上发展起来的一类模型，其技术起点通常追溯到 Transformer ~\cite{vaswani2017attention}架构的提出。相比早期依赖循环神经网络和长短时记忆网络的序列建模方法，Transformer 采用自注意力机制，可以直接建模序列中不同位置之间的关系，并支持并行训练，因此很快成为自然语言处理中的主流结构。在这一基础上，BERT~\cite{devlin2019bert}、GPT~\cite{radford2018gpt}等模型推动了预训练语言模型的发展。BERT 采用双向编码方式，更适合理解类任务；GPT 采用自回归生成方式，更适合文本生成任务。随着参数规模、训练数据和训练策略不断扩展，语言模型逐步发展为具备较强知识表示、上下文理解和文本生成能力的大语言模型。
+
+从基本原理上看，大语言模型的核心仍然是语言建模，即在大规模语料上学习句子和篇章中的统计规律与语义关系。给定输入后，模型先将离散词元映射为连续表示，再通过多层自注意力和前馈网络不断更新上下文表示，最后完成下一个词元预测或被遮蔽词元恢复。自注意力机制通过查询、键和值之间的匹配关系分配权重，使模型能够根据上下文动态关注不同位置的信息；多头注意力则从不同子空间同时建模语义关系，从而增强表示能力。由于这种统一的建模方式，大语言模型能够迁移到问答、摘要和推理等多种任务中，已经成为当前自然语言处理的重要基础模型~\cite{brown2020language}。
+
+除纯文本模型外，多模态大语言模型（Multimodal Large Language Models, MLLMs）进一步将图像等非文本模态纳入统一框架。这类模型通常先利用视觉编码器提取图像特征，再通过投影层或跨模态对齐模块将视觉表示映射到语言空间，最后由语言模型统一完成理解与生成~\cite{liu2024improved}。这一技术路线并没有改变语言模型作为核心的地位，而是在输入端增加了视觉信息接口。随着模型能力不断提升，多模态大语言模型已经可以较好地处理图文问答、图像描述和视觉推理等任务。如图 \ref {fig:llm_survey} 所示，近年来一批能力强劲的大语言模型相继涌现，它们普遍支持多模态输入，可处理图像、文本、文档、音频等多种类型的信息。
+
+近年来，大语言模型在复杂推理任务上的能力也受到越来越多关注，进而出现了“思考型”（Thinking）大语言模型的研究。这类方法的重点不是改变底层结构，而是在训练或推理阶段显式引入中间推导过程，使模型先给出推理路径，再生成最终答案。这一思路与链式思维提示（Chain-of-Thought, CoT）~\cite{wei2022cot}密切相关。已有研究表明，当模型被引导输出中间推理过程时，其在数学推理、常识推理和符号推理等任务上的表现通常会有所提升。因此，大语言模型的发展已不再局限于一般文本生成，而是逐步扩展到对复杂推理能力的建模与增强。
+
+\begin{figure}[htbp]
     \centering
-    \includegraphics[width=.5\textwidth]{xjtu.pdf}
-    \subcaption{校名}
-  \end{subfigure}
-}
-
-为了简化叙述，定义一个命令 \clist{\subfigg} 代表插入一个子图：
-\begin{texcodeonly}[]{}
-  \newcommand{\subfigg}{
-    \begin{subfigure}[b]{0.49\linewidth}
-      \centering
-      \includegraphics[width=.5\textwidth]{xjtu.pdf}
-      \subcaption{校名}
-    \end{subfigure}
-  }
-\end{texcodeonly}
-
-在\clist[columbiablue]{subfig}宏包中提供了\clist{\ContinuedFloat}命令，使一个浮动体环境与其内子图的编号跟随前一个子图，此时两个浮动体环境可以分别设置标题，若具有相同的标题，或后续图的标题设置为 \clist{（续）}，则可以实现子图分页的效果。同时，模板提供了 \clist{\floatcontinue} ，通过包装\clist{\ContinuedFloat}使得子图在此命令处断页，不产生图标题，并在下一页生成图题。此两种命令均可使用，按照喜欢或需求使用。
-\clearpage
-\subsubsection{使用 ContinuedFloat}
-
-\begin{texcodeonly}[]{}
-  \begin{figure}[h]
-    \subfigg    \subfigg
-    \caption{校徽}
-  \end{figure}
-  
-  \begin{figure}[H]
-    \ContinuedFloat
-    \subfigg    \subfigg
-    \subfigg    \subfigg
-    \caption{校徽} % 或 \caption{（续）}
-  \end{figure}
-\end{texcodeonly}
-
-\begin{figure}[h]
-  \subfigg    \subfigg
-  \caption{校徽}
+    \includegraphics[width=1.0\textwidth]{c2_LLM_survey.png}
+    \caption{大语言模型发展时间线~\cite{zhao2023llmsurvey}}
+    \label{fig:llm_survey}
 \end{figure}
 
-\begin{figure}[H]
-  \ContinuedFloat
-  \subfigg    \subfigg
-  \subfigg    \subfigg
-  \caption{校徽} % 或 \caption{（续）}
-\end{figure}
+\xsubsection{微调方法}{Fine-tuning Methods}
 
-\subsubsection{使用 floatcontinue}
+预训练语言模型虽然具有较强的通用能力，但并不是直接针对某一具体任务设计的。为了使模型适应新的任务形式和输出要求，通常需要在预训练模型基础上继续使用目标任务数据进行训练，这一过程称为微调（Fine-tuning）。随着预训练语言模型的发展，自然语言处理中的训练范式也逐渐从“针对单一任务从头训练”转向“先预训练、后微调”。这种方式减少了对大规模标注数据的依赖，也提高了模型在下游任务中的适应能力~\cite{brown2020language}。
 
-\begin{texcodeonly}[]{}
-  \begin{figure}[h]
-    \subfigg    \subfigg
-    \floatcontinue{tb}
-    \subfigg    \subfigg
-    \subfigg    \subfigg
-    \caption{校徽}
-  \end{figure}
-\end{texcodeonly}
-
-\begin{figure}[h]
-  \subfigg    \subfigg
-  \floatcontinue{tb}
-  \subfigg    \subfigg
-  \subfigg    \subfigg
-  \caption{校徽}
-\end{figure}
+指令监督微调（Instruction Supervised Fine-tuning）是在一般微调方法基础上的进一步发展。它将任务统一写成“指令—输入—输出”的形式，使模型学习按照自然语言指令完成不同任务。与传统分类或序列标注方式相比，指令微调更接近生成式模型的使用方式，也更适合当前的大语言模型。其基本做法是将任务说明、上下文和目标答案组织成训练样本，并通过监督学习优化模型输出与参考答案之间的差异。研究表明，经过指令微调的模型通常具有更好的指令遵循能力，在零样本和少样本场景下也表现出较强的泛化能力~\cite{wang2023selfinstruct}。
 
 
-\clearpage
+随着模型规模不断增大，全参数微调的代价越来越高。它不仅需要较大的显存和存储资源，也会增加训练和部署成本。为此，研究中提出了参数高效微调（Parameter-Efficient Fine-tuning, PEFT）方法，其基本思想是在尽量冻结原始模型参数的前提下，只训练少量新增参数来完成任务适配。LoRA~\cite{hu2022lora}（Low-Rank Adaptation）是其中最有代表性的方法之一，其核心做法是在原有线性变换矩阵上加入低秩更新项，用两个较小矩阵的乘积来近似参数变化，而不是直接更新整个权重矩阵。这样可以在保持原模型主体参数不变的情况下，以较少的可训练参数完成适配。
 
-\xsection{表}{Tables}
+从原理上看，LoRA 假设任务适配所需的参数变化主要集中在一个低维子空间内，因此无需对全部参数进行独立更新，而可以通过少量新增参数实现模型适配。与全参数微调相比，LoRA 所需训练参数更少，显存开销更低，也更便于保存和切换不同任务的适配模块，因此在保证一定适配效果的同时显著降低了训练与部署成本。由于兼具效率和灵活性，LoRA 已成为当前大语言模型微调中的常用方法。
 
-\begin{tcolorbox}[colback=red!5!white,colframe=red!75!black]
-  \begin{enumerate}[leftmargin=0.5cm]
-    \item 如某个表需要转页接排，在随后的各页上应重复表的编号。编号后跟表题（可省略）和“（续）”，如表 1-1（续），续表均应重复表头和关于单位的陈述。表格的设计应紧跟文述。表的编排一般是内容和测试项目由左至右横读，数据依序竖读，应有自明性。若为大表或作为工具使用的表格，可作为附表在附录中给出，论文中的表格参数应标明量和单位的符号；
-    \item 表中各物理量及量纲均按国际标准(SI) 及国家规定的法定符号和法定计量单位标注；
-    \item 一律使用三线表，与文字齐宽，顶线与底线线粗为 $1.5$ pt，中线线粗是 $1$ pt；
-    \item 使用他人表格须注明出处。
-    \item 表中用字为五号字体。如排列过密，用五号字有困难时，可小于五号字，但不小于七号。
-    \item 表格必须通栏，即表格宽度与正文版面平齐。
-  \end{enumerate}
-\end{tcolorbox}
+\xsubsection{强化学习}{Reinforcement Learning}
 
+强化学习（Reinforcement Learning, RL）是一类通过智能体与环境交互来学习策略的方法。与监督学习直接依赖固定标签不同，强化学习中的模型需要根据当前状态选择动作，环境再返回奖励和新的状态，模型据此不断更新策略，以最大化长期累计回报~\cite{sutton1998reinforcement}。从形式上看，强化学习通常可表示为一个马尔可夫决策过程（Markov Decision Process, MDP），其核心要素包括状态空间、动作空间、状态转移概率和奖励函数。对于给定策略 $\pi$，目标是最大化期望回报
+\begin{equation}
+    J(\pi)=\mathbb{E}_{\tau \sim \pi}\left[\sum_{t=0}^{T}\gamma^t r_t\right],
+\end{equation}
+其中 $\tau$ 表示由策略生成的轨迹，$\gamma$ 为折扣因子，$r_t$ 表示第 $t$ 步的奖励。
 
-\xsubsection{普通表格}{Normal Tables}
+对于生成式模型而言，强化学习可以将文本生成过程看作一个序列决策过程。给定输入提示后，模型每生成一个词元或一个推理片段，都可以看作在当前状态下执行一次动作；整个输出序列则构成一条轨迹。这样一来，模型优化的目标就不再只是拟合参考答案，而是能够直接根据整条输出的质量进行更新。因此，强化学习特别适用于那些难以通过单一监督标签刻画、却可以通过整体反馈进行评价的任务，例如回答质量、推理正确性和偏好对齐等。
 
+在大语言模型的强化训练中，常见做法是采用策略梯度方法对生成策略进行更新。其中，PPO（Proximal Policy Optimization）是较有代表性的策略优化方法。它的基本思想是在更新策略时限制新旧策略之间的变化幅度，避免参数更新过大导致训练不稳定。该方法通过对策略更新施加局部约束，在优化奖励的同时控制策略分布的过快漂移，因此在大模型对齐和推理优化中得到了广泛应用~\cite{schulman2017ppo,ouyang2022training}。
 
-考虑到使用成本、内容与样式分离。模板默认调用现代化的表格绘制宏包 \clist[columbiablue]{tabularray}。该宏包的使用方法请使用 \clist{texdoc tabularray}，网上也有此手册的中文翻译。请确保使用的发行版包含这一宏包（即更新至 2023 及以后的版本）。
+在此基础上，面向大模型推理训练又进一步发展出了组相对策略优化（Group Relative Policy Optimization, GRPO）方法~\cite{guo2025deepseekr1}。与传统方法主要依赖绝对奖励和显式价值估计不同，GRPO 更关注同一输入下多条候选输出之间的相对优劣关系。具体来说，给定一个问题，模型会采样得到一组候选轨迹，再根据组内比较结果构造相对优势，并据此更新策略。
 
-非跨页表格应使用 tblr 环境制作表格，使用 table 作为浮动体环境，使用 \clist{\toprule}，\clist{\midrule} 和 \clist{\bottomrule} 指定三线表的三条线：
+从原理上看，GRPO 的关键不在于单条输出获得了多少绝对分数，而在于它在同组候选中的相对表现是否更好。这样做可以减弱不同样本之间奖励尺度不一致带来的影响，也能够降低训练过程对单独价值模型的依赖。与传统策略优化方法相比，GRPO 更适合用于推理任务，因为在这类任务中，不同候选解答之间的优劣通常更容易比较，而不容易获得稳定的绝对奖励信号。与此同时，GRPO 在训练过程中通常仍会引入参考策略来约束当前策略不要偏离初始模型过远，这种约束一般可以通过 KL 散度来刻画。KL 散度的作用在于控制策略漂移，使模型在追求更高奖励的同时保持输出分布的基本稳定性。
 
-\begin{texcode}[]{}
-    \begin{table}[H]
-        \caption{tblr 基本用法}
-        \label{tbl:2-1}
-        \begin{tblr}{
-            % colspec={X[r,m,2]X[c,3]X[l,1]}
-            X[r,m,2]X[c,3]X[l,1]
-        }
-            \toprule
-            Head & Test & 测试 \\
-            \midrule
-            Class that has many accessor methods and accesses a lot of external data & ATFD is more than a few & 3 \\
-            1 & 2 & 3 \\
-            1 & 2 & 3 \\
-            \bottomrule
-        \end{tblr}
-    \end{table}
-\end{texcode}
+总体来看，GRPO 可以理解为一种结合组内相对比较与策略分布约束的优化方法。前者提供了更适合推理任务的训练信号，后者则保证训练过程的稳定性。对于大语言模型尤其是推理模型来说，GRPO 能够较好地利用多条候选解答之间的相对差异，从而为复杂推理任务提供更有效的强化学习训练机制。
 
-tblr 环境各列的对齐方式可以以键值对的方式在必选参数中设置，或者直接作为唯一必选参数（参考 tabularray 手册第 24 页）。列类型包括 c/l/r, t/b/m, X 等。c/l/r 为默认的三种对齐方式，t/b/m 指定单元格内容超过列宽时垂直方向的对齐方式， X 类型会自动调整列宽使全表宽度与页宽一致，X 类型列的水平、垂直对齐方式以类似 X[c] 的方式在 X 后的方括号内指定。X 类型后的方括号可以指定此列宽度与其他X类列宽度的相对大小，也可使用 \clist{wd=A}直接指定列宽。推荐使用 X 作为列类型。
+\xsection{本章小结}{Chapter Summary}
 
-\begin{texcode}[]{}
-    \begin{tblr}{
-        colspec={|ll|X[c]|rr|},
-        cell{1}{1}={r=3,c=2}{r,m},
-        cell{1}{3}={r=2,c=3}{l,t},
-        cell{3}{Z}={}{red},
-        hline{4-6}={2pt,blue},
-    }
-        \hline
-        1-1 & 1-2 & 1-3 & 1-4 & 1-5 \\
-        \hline
-        2-1 & 2-2 & 2-3 & 2-4 & 2-5 \\
-        \hline
-        3-1 & 3-2 & MIDDLE & 3-4 & 3-5 \\
-        % \hline (4th)
-        4-1 & 4-2 & 4-3 & 4-4 & 4-5 \\
-        % \hline (5th)
-        5-1 & 5-2 & 5-3 & 5-4 & 5-5 \\
-        % \hline (6th)
-    \end{tblr}
-\end{texcode}
-
-tabularray 的优点在于格式和内容分离，使用更贴合人类习惯。单元格的合并，文字、背景、边框的样式都可以放在参数中设置。 \clist{cell{R}{C}={merge}{style}}用于设置单元格合并，其中 R,C 指定合并单元格左上角的位置，merge参数指定合并多少行多少列，style 调整合并后的单元格样式，其中 R,C 除了使用行号进行索引，可以使用 X,Y,Z 索引倒数第三、二、一行/列，可以使用 odd/even 选择 奇/偶列，还可以使用连字符(dash)选择区间，非常方便。
-
-\xsubsection{复杂表格}{Complicated tables}
-
-在三线表中可以加辅助线，以适应较复杂表格的需要，具体使用方法请自行阅读宏包：
-
-\begin{texcode}[]{}
-\begin{table}[H]
-  \centering
-  \caption{compare with other approachs}
-  \label{table:methodcompare}
-  \begin{tblr}{
-      colspec={*{7}{X[c]}},
-      cell{1}{1}={r=2}{c,m},
-      cell{1}{2,5}={c=3}{c,m},
-      hline{2,4,6}={1pt},
-      hline{1,3,Z}={1.5pt},
-      row{4,5}={rowsep=0pt},
-      row{Z}={m,font=\bfseries},
-  }
-    Model & trigger inditification & & & Event Extraction & & \\
-    & P(\%) & R(\%) & F1(\%) & P(\%) & R(\%) & F1(\%) \\
-    Baseline1 & 76.84 & 76.84 & 76.84 & 76.84 & 76.84 & 76.84 \\
-    Baseline2  & 76.84 & 76.84 & 76.84 & 76.84 & 76.84 & 76.84 \\
-    Baseline3  & 76.84 & 76.84 & 76.84 & 76.84 & 76.84 & 76.84 \\
-    Our approach  & 76.84 & 76.84 & 76.84 & 76.84 & 76.84 & 76.84 \\
-  \end{tblr}
-\end{table}
-\end{texcode}
-
-\xsubsection{长表格}{Long Tables}
-
-当表格过长时，使用\clist{longtblr}环境，此时不需要浮动体环境。在可选参数中需要设置\clist{theme=xjtu_std}，以调用预先设置好的续表样式，同时设置表格标题、label、脚注等，具体使用方法请自行阅读宏包。
-
-\begin{texcodeonly}[]{}
-    \begin{longtblr}[
-        theme = xjtu_std,
-        caption = {A Long Long Long Long Long Long Long Table },
-        entry = {Short Caption},
-        label = {tblr:test},
-        note{a} = {脚注},
-        note{$\dag$} = {还是脚注},
-        remark{Note} = {注释，即表格内没有标注符号的脚注},
-        remark{Source} = {还是注释},
-    ]{
-        colspec = {XX[c]X},
-        rowhead = 1, rowfoot = 0,
-    }
-    \toprule
-    Head & Head & Head \\
-    \midrule
-    Epsilon & Zeta\TblrNote{a} & Eta \\
-    Iota & Kappa\TblrNote{$\dag$} & Lambda \\
-    Nu & Xi & Omicron \\
-    \dots 
-    Foot & Foot & Foot \\
-    \bottomrule
-    \end{longtblr}
-\end{texcodeonly}
-
-\begin{longtblr}[
-        theme = xjtu_std,
-        caption = {A Long Long Long Long Long Long Long Table },
-        entry = {Short Caption},
-        label = {tblr:test},
-        note{a} = {脚注},
-        note{$\dag$} = {还是脚注},
-        remark{Note} = {注释，即表格内没有标注符号的脚注},
-        remark{Source} = {还是注释},
-    ]{
-        colspec = {XX[c]X},
-        rowhead = 1, rowfoot = 0,
-    }
-    \toprule
-    Head & Head & Head \\
-    \midrule
-    Head & Head & Head \\
-    Alpha & Beta & Gamma \\
-    Epsilon & Zeta\TblrNote{a} & Eta \\
-    Iota & Kappa\TblrNote{$\dag$} & Lambda \\
-    Nu & Xi & Omicron \\
-    Rho & Sigma & Tau \\
-    Phi & Chi & Psi \\
-    %
-    % ......
-    Alpha & Beta & Gamma \\
-    Epsilon & Zeta & Eta \\
-    Iota & Kappa & Lambda \\
-    Nu & Xi & Omicron \\
-    Rho & Sigma & Tau \\
-    Phi & Chi & Psi \\
-    % Foot & Foot & Foot \\
-    Alpha & Beta & Gamma \\
-    \midrule
-    Epsilon & Zeta & Eta \\
-    Iota & Kappa & Lambda \\
-    Nu & Xi & Omicron \\
-    Rho & Sigma & Tau \\
-    Phi & Chi & Psi \\
-    Foot & Foot & Foot \\
-    Alpha & Beta & Gamma \\
-    Epsilon & Zeta & Eta \\
-    Iota & Kappa & Lambda \\
-    Nu & Xi & Omicron \\
-    Rho & Sigma & Tau \\
-    Phi & Chi & Psi \\
-    Foot & Foot & Foot \\
-    Alpha & Beta & Gamma \\
-    Epsilon & Zeta & Eta \\
-    Iota & Kappa & Lambda \\
-    Nu & Xi & Omicron \\
-    Rho & Sigma & Tau \\
-    Phi & Chi & Psi \\
-    Foot & Foot & Foot \\
-    \bottomrule
-\end{longtblr}
+本章对平面几何问题求解任务及其相关技术基础进行了概述。首先，围绕任务本身，介绍了平面几何问题的基本类型、任务特点、长链条问题定义及其形式化表示，为后续数据构建与方法设计提供了统一的问题描述。其次，围绕相关技术，介绍了大语言模型、微调方法和强化学习的基本原理，并进一步说明了多模态大语言模型、指令监督微调、LoRA 微调以及 GRPO 等方法的核心思想。以上内容构成了本文后续章节展开的理论基础。 

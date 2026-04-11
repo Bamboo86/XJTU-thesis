@@ -1,69 +1,570 @@
 % !TeX root = ../main.tex
 
-\xchapter{算法与代码}{Algorithm and Code}
+\xchapter{面向长链条推理的多模态平面几何基准构建}{A Multi-modal Plane Geometry Benchmark for Long-step Reasoning}
 
-\begin{tcolorbox}[colback=red!5!white,colframe=red!75!black]
-  学校并未对 算法 或 代码 的排版格式作出限定，因此可以自行修改。
-\end{tcolorbox}
+% 为了评估模型在复杂几何任务中的长链推理能力，本章构建了一个面向长链条平面几何推理的多模态评测基准。围绕这一目标，本章主要开展三方面工作：构建细粒度标注的长链条几何数据集，设计从原始图文到谓词逻辑表示的形式化工具链，并对多种代表性多模态大语言模型开展系统评测。
 
-\xsection{算法}{Algorithm}
+% 本章构建了一个面向长链条平面几何推理的多模态评测基准，并围绕数据构建、形式化表述与模型评测三个方面展开，以系统评估模型在复杂几何任务中的长链推理能力。
 
-考虑到实际使用需求，即长算法分段和注释功能，模板不再使用 \clist[columbiablue]{algorithm2e} 作为默认算法排版工具，改为调用 \clist[columbiablue]{algpseudocode}。注意，这两个宏包相互冲突。算法的具体编写方式请自行查阅宏包，即\clist{texdoc algpseudocode}。
+\xsection{引言}{Introduction}
 
-\begin{texcode}[]{}
-\begin{algorithm}[H]
-  \caption{How to write algorithms}
-  \begin{algorithmic}[1]
-      \State \textbf{Input:} this text
-      \State \textbf{Output:} how to write algorithm with \LaTeX2e \Comment{Just a comment}
-      \State initialization
-      \While{not at end of this document}
-        \State read current
-        \If{understand}
-          \State go to next section
-          \State current section becomes this one
-        \Else{$k\geq k^\text{max}$}
-          \State go back to the beginning of current section
-        \EndIf
-      \EndWhile
-  \end{algorithmic}
-\end{algorithm}
-\end{texcode}
+在数学教育实践与几何自动求解研究中，平面几何问题的求解通常并非依靠单步公式套用即可完成，而是依赖多步、连续且可追溯的逻辑推导过程。每一步推理都需要严格依据几何定理与已知条件展开，并在前序结论的基础上逐步逼近目标结论。相较于短链推理任务，长链条推理对模型能力提出了更高要求：模型不仅需要具备几何知识调用能力，还需要在较长推理链条中持续保持条件约束，正确组织中间结论，并有效避免误差累积与推理路径偏移。这类能力要求也更加贴近中学阶段几何教学中“证明—推导—计算”交织的真实解题过程。
 
-\begin{texcode}[]{}
-  \begin{algorithm}[H]
-    \caption{Simulation-optimization heuristic}\label{algorithm:SOH}
-    \begin{algorithmic}[1]
-        \State \textbf{Data:} current period $t$, initial inventory $I_{t-1}$, initial capital $B_{t-1}$, demand samples
-        \State \textbf{Output:} Optimal order quantity $Q^{\ast}_{t}$
-        \State $r\leftarrow t$
-        \State $\Delta B^{\ast}\leftarrow -\infty$
-        \While{$\Delta B\leq \Delta B^{\ast}$ and $r\leq T$}
-          \State $Q\leftarrow\arg\max_{Q\geq 0}\Delta B^{Q}_{t,r}(I_{t-1},B_{t-1})$
-          \State $\Delta B\leftarrow \Delta B^{Q}_{t,r}(I_{t-1},B_{t-1})/(r-t+1)$
-          \If{$\Delta B\geq \Delta B^{\ast}$}
-            \State $Q^{\ast}\leftarrow Q$
-            \State $\Delta B^{\ast}\leftarrow \Delta B$
-          \EndIf
-          \State $r\leftarrow r+1$
-        \EndWhile
-    \end{algorithmic}
-  \end{algorithm}
-\end{texcode}
+随着大语言模型与多模态大语言模型的发展，模型在基础几何问答与简单求解任务上已表现出一定能力，能够在有限推理深度下生成可用答案。然而，当题目涉及较长推理链条时，现有模型仍普遍存在推理断裂、定理适用条件把握不当以及多步传递过程中信息偏差等问题。这些问题不仅削弱了解题过程的可验证性与可复用性，也进一步影响了最终答案的可靠性与可解释性。因此，要系统评估模型在几何任务中的应用能力，评测方式不能仅停留在最终答案是否正确，更应对长链推导过程进行稳定、细粒度的刻画与分析，从而识别模型在推理链条中的具体薄弱环节。
+
+基于上述背景，本章的核心目标是构建一个面向长链条、高难度平面几何推理的多模态评测基准 GeoLStep（Geometry Benchmark for Long-Step Reasoning），以支持对模型长链推理能力的系统评估与分析。本章中“长链条”用于概括题目包含较长中间推导过程的特征；在具体数据标注与统计分析中，仍以逻辑推理步骤数作为推理链长度的衡量单位。在数据层面，本章构建符合真实教学题型的复杂平面几何题目，并强调多步连续推导特征；在输入层面，采用几何示意图与题干文本联合建模的方式，以更真实地还原几何解题场景；在评测层面，建立同时关注结果正确性与过程合理性的标准化评估协议。与此同时，为支撑后续符号化分析与自动化验证，本章进一步配套构建了从图文输入到形式化几何表示的转换资源，从而提升基准在评测、分析与扩展应用中的可操作性。
+
+\xsection{现有几何数据基准对比}{Comparison with Existing Geometry Benchmarks}
+
+近年来，学术界围绕几何问题求解与多模态数学推理构建了多个具有代表性的数据基准，为图文联合建模、符号求解、定理预测与自动证明等研究提供了重要支撑。例如，Geometry3K\cite{lu2021intergps} 提供了较为系统的几何形式化描述，是平面几何符号推理研究中的经典基准；GeoQA\cite{chen2021geoqa}、PGPS9K\cite{zhang2023pgps}、FormalGeo7K\cite{zhang2023formalgeo}、GPSM4K\cite{jaiswal2024gpsm4k} 等工作则进一步扩展了程序监督、形式化表示和证明相关任务。总体而言，现有几何数据集在规模、任务形式和标注方式上持续丰富，为几何推理研究奠定了良好基础。
+
+常见几何问题数据基准的整体对比如表 \ref{tab:geo_datasets} 所示。总体来看，现有几何数据集在规模、任务设定和覆盖范围上不断扩展：早期工作主要聚焦于平面几何中的计算与求解任务，随后逐步引入问答、定理预测、结论证明等更丰富的研究目标。与此同时，数据覆盖的几何范围也有所拓展，除平面几何外，近年的部分基准开始涉及立体几何与解析几何场景。尽管如此，从本文关注的长链条平面几何推理来看，现有基准仍主要在任务复杂性和过程评估两方面存在不足。
+
+\begin{table}[H]
+    \centering
+    \small
+    \caption{几何问题数据基准对比}
+    \label{tab:geo_datasets}
+    \begin{tabularx}{\textwidth}{lccccccc}
+        \toprule
+        数据基准                                  & 大小  & 难度    & 题目类型    & 任务      & 推理长度 & 过程评估 & 年份   \\
+        \midrule
+        Geometry3K~\cite{lu2021intergps}      & 3K  & 6--12 & P       & 计算      & 短    & 不支持  & 2021 \\
+        GeoQA~\cite{chen2021geoqa}            & 5K  & 6--12 & P       & 计算、问答   & 短    & 部分支持 & 2021 \\
+        UniGeo~\cite{chen2022unigeo}          & 15K & 9--12 & P       & 计算、定理证明 & 中    & 部分支持 & 2022 \\
+        PGPS9K~\cite{zhang2023pgps}           & 9K  & 6--12 & P       & 计算      & 短    & 部分支持 & 2023 \\
+        FormalGeo7K~\cite{zhang2023formalgeo} & 7K  & 6--12 & P       & 计算      & 中    & 支持   & 2023 \\
+        GPSM4K~\cite{jaiswal2024gpsm4k}       & 4K  & 7--12 & P       & 计算、结论证明 & 中    & 部分支持 & 2024 \\
+        GeomVerse~\cite{kazemi2023geomverse}  & 12K & ---   & P       & 计算      & 中    & 支持   & 2024 \\
+        GeoEval~\cite{zhang2024geoeval}       & 5K  & 1--12 & P, S, A & 计算      & 中    & 部分支持 & 2024 \\
+        GeoSense~\cite{xu2025geosense}        & 2K  & 6--12 & P, S    & 计算、定理预测 & 中    & 支持   & 2025 \\
+        Ours                                  & 2K  & 9--12 & P       & 计算、结论证明 & 长    & 支持   & 2026 \\
+        \bottomrule
+    \end{tabularx}
+
+    \vspace{1ex}
+    \raggedright \footnotesize
+    注：题目类型中 P、S、A 分别代表平面（Plane）、立体（Solid）和解析（Analytic）几何。
+\end{table}
+
+首先，在任务复杂性方面，上述基准整体仍以短链或中等长度推理任务为主，对高难度、长链条平面几何综合题的覆盖相对有限。多数题目通常只需结合少量局部关系即可求解，所涉及的定理调用次数和中间结论传递深度也较为有限，因此更适合用于考察模型对基本几何知识及局部关系的理解，而较难反映其在较长推理过程中的整体稳定性。
+
+以带有程序标注的 GeoQA\cite{chen2021geoqa} 和 GeoQA+\cite{cao2022geoqa_plus} 为例，其统计平均运算步数仅为 1.96 步和 2.61 步；对于 Geometry3K\cite{lu2021intergps}，虽然原始数据集未直接提供步骤标注，但已有代表性求解方法报告的平均求解步数或定理应用步数，仍可在一定程度上反映其推理深度。GeoDRL\cite{peng2023geodrl} 在 Geometry3K 上报告的平均求解步数约为 2.34 步，而 E-GPS\cite{wu2024egps} 在相近设置下可进一步压缩至约 1.57--2.18 步。图 \ref{fig:dataset_compare_example} 进一步展示了三个数据集中具有代表性的较长推理题目示例。可以看到，PGPS9K~\cite{zhang2023pgps} 与 GeoQA+~\cite{cao2022geoqa_plus} 中即使是相对复杂的样本，其求解过程仍普遍较短；而本文数据集中的对应样本通常涉及更长的推理链条与更细的过程展开。这也从样例层面说明了构建长链条平面几何基准的必要性。
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.92\textwidth]{figures/dataset_compare_example.pdf}
+    \caption{不同数据集中代表性长推理题目示例对比}
+    \label{fig:dataset_compare_example}
+\end{figure}
+
+从题目难度的覆盖情况来看，表 \ref{tab:geo_datasets} 中给出的难度区间虽然多标注为 6--12，但这类划分主要基于国外课程体系，与国内初中几何尤其是中考几何的命题特点并不完全对应，因此本文在横向对比时仍沿用较为接近的 9--12 难度表述，以保持与已有工作的可比性。总体来看，现有数据集虽然在规模和覆盖范围上不断扩展，近年也出现了如 GeomVerse\cite{kazemi2023geomverse}、GeoEval\cite{zhang2024geoeval} 等进一步扩展数据来源与构造方式的工作，但对于高难度、长链条平面几何综合题的稳定覆盖仍相对有限。相比之下，来源于国内中考试卷的几何题在命题形式和难度梯度上更为统一，也更容易稳定聚焦于较高复杂度样本。
+
+其次，在过程评估上，现有基准多数仍以最终答案正确性作为主要评价依据。虽然部分数据集提供了解题程序、定理序列或形式化表示等中间过程信息，为过程监督提供了支持，但这些过程信息大多作为辅助标注存在，尚未进一步转化为标准化的过程评估机制。对于长链条几何推理任务而言，仅考察最终答案往往难以充分反映模型在连续推导中的真实表现，因此有必要进一步引入面向中间过程的评估方式，对模型各步推理的正确性进行更细致的考察。
+
+综合来看，现有几何数据基准已在图文联合建模、形式化表示和自动求解等方面取得了重要进展，但对于本文重点关注的长链条平面几何推理任务，在任务复杂性与过程评估方面仍然缺乏兼顾的系统性设计。上述不足也表明，有必要进一步构建面向复杂平面几何任务的专用评测基准，以为后续的数据构建、形式化表示与模型评测提供数据基础。
+
+\xsection{平面几何推理基准构建}{Construction of Plane Geometry Reasoning Benchmark}
+
+\xsubsection{数据收集与预处理}{Data Collection and Preprocessing}
+
+为构建面向真实考试场景的长链条平面几何推理基准 GeoLStep，本章系统收集了国内各省市 2020 年至 2024 年中考真题及代表性模拟试卷中的平面几何题目。相较于通用合成数据，此类题目在命题规范、知识点覆盖范围以及难度梯度设置等方面更具稳定性，因而能够为长链几何推理能力的评估提供更具代表性的测试分布。原始材料均来自互联网公开可获取的试卷资源。最终，共收集公开试卷 PDF 文件 383 套，并在此基础上对其中的平面几何题目进行系统筛选与整理。图~\ref{fig:paper_example} 给出了从原始试卷构建最终几何样本集合的流程示例。
+
+该筛选流程主要包括两个核心环节。首先，在可求解性预筛阶段，为保证后续符号系统与形式化求解流程能够有效覆盖目标题目，本文基于题目结构对其可符号化建模能力进行预估，仅保留符合要求的欧氏几何问题，并剔除解析几何题目（如涉及坐标系与二次函数的问题）、以“可能的最大值/最小值”为求解目标的最值问题，以及其他符号系统难以直接建模的开放性问题等。
+
+其次，在多题干处理阶段，针对包含多个设问的综合题，本文将题目主干文本与各小题文本按照逻辑顺序分别拼接，并拆分为若干独立样本。该处理保证了最终几何样本集合中的每个样本均具有完整自洽的题面和单一明确的求解目标。
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/pdf_to_problem.pdf}
+    \caption{试卷中选取平面几何题目样本流程及示例}
+    \label{fig:paper_example}
+\end{figure}
+
+基于上述数据来源与筛选方式，所构建数据集在题面信息组织方式与图像呈现风格上呈现出较为鲜明的特征。与部分公开几何数据集倾向于在图像中直接标注平行、垂直、角度数值等关键几何约束不同，国内中考试题的关键信息通常以自然语言形式完整给出，题目文本基本覆盖求解所需的主要条件；相应地，配图更多承担展示几何拓扑结构与作图对象的功能。因此，本数据集中的图像整体更为简洁规范，通常仅包含点、线段（或延长线）、角弧等基础几何元素，整体以黑色线条为主，干扰信息较少，更贴近真实考试场景下的标准作图风格。
+
+在此基础上，中考几何题在设问形式和解题过程上通常也表现出较强的规范性，题目条件、推导路径与中间结论之间往往存在较为清晰的对应关系。这一特点有利于开展过程级标注、推理过程分析以及模型可解释性评测，也使本数据集更适合作为长链条平面几何推理研究的评测基础。
+
+\xsubsection{多模态数据标注}{Multi-modal Data Annotation}
+为了保证题面与解析的可用性，本章采用人工流程与自动化工具辅助相结合的方式完成数据整理与标注。具体包括以下过程：首先，在题目抽取阶段，从PDF中对几何题目区域进行截图，分别保存高质量几何图像与对应的题面及解析区域；其次，在文本识别与修正阶段，对题目文本与参考解答过程进行光学字符识别（Optical Character Recognition, OCR）获取文字信息，并使用多模态大语言模型（MLLM，如GPT-4o\cite{hurst2024gpt4o}）进行内容校对与修正，在不改变题意的前提下消除OCR识别误差、补全漏识内容并统一文本表述；其次，在求解过程与辅助线标注阶段，基于修正后的参考解答，使用MLLM给出该题的推理步骤数以及是否需要作辅助线等标注信息，其中过程粒度遵循对“逻辑推理步骤”的定义；最后，在难度分级阶段，采用“易/中/难”三级标注，并依据是否需要辅助线帮助求解与推理长度进行划分，以反映解题的结构复杂度与推理深度。
+前文已对“长链条几何问题”作出统一定义，本文在本章中沿用这一表述。具体而言，将人类专家标准解题过程中平均需要至少 5 个逻辑推理步骤的问题视为长链条几何问题。需要说明的是，这里的“长链条”描述的是题目的整体推导特征，而“逻辑推理步骤数”是对该特征进行量化统计时所采用的具体衡量单位。
+
+\xsubsection{形式化表示体系}{Formal Representation System}
+% 形式化表示与转换（字段定义、语法、失败案例、覆盖率）
+
+% 定义输入（几何图 + 自然语言题干）与输出（分步推理序列 + 最终答案）；介绍自研形式化语言（如 GeoLang），用于统一表示点、线、角、关系及推理规则，支撑符号求解与过程验证。
+% 含有的内容是包括所有图像的基本标注，Label.txt
+% 举例说明形式化表示的结构与语法，如如何表达“∠ABC = 90°”或“AB ∥ CD”等基本元素及其组合。同时，可以和Geo3K对比，当前国内中考中，条件一般不会给在图片当中，文本大概率蕴含了所有的内容。一般图像只会有点、线以及几何基元，此外会有垂直（但是文本中有）。但是geo3k会有平行、垂直等内容在图像中出现。可以统计说明：我们的数据集图像有三类形式化语言，geo3k有五类
+% 图形的形式化语言可以出两个结果：一个是有完整标注的解析结果，一个是无标注，一个是人工核对的。点、线、形式化语言多余的，少的，
+% 测试大模型的空间想象+画图能力，给定形式化语言，画图比较相似
 
 
+为使几何题目能够被符号求解系统直接处理，并为过程核验、自动形式化证明等任务提供可验证的中间表示，有必要将自然语言描述转化为严格的形式化语言。近年来，相关研究普遍重视几何问题的形式化表达。例如，AlphaGeometry \cite{trinh2024alphageometry} 强调将自然语言条件转化为严密的逻辑构造，UniGeo \cite{chen2022unigeo} 也从统一多模态约束表示的角度对几何问题进行建模。这些工作表明，形式化语言不仅是连接自然语言与符号推理的关键桥梁，也是实现几何问题标准化表示的重要基础。
 
-\xsection{导入代码}{Input codes}
+基于上述考虑，本工作在形式化语言层面对齐了 Inter-GPS \cite{lu2021intergps} 与 PGDPNet \cite{zhang2022pgdp} 等工作所采用的谓词表示体系。该体系以统一的谓词集合刻画几何对象（点、线段、角等）及其关系（平行、垂直、相等等），从而将题目中以自然语言描述的条件转化为结构化、可计算的约束集合，作为符号推理与过程核验的统一接口。在具体语法实现上，本文严格沿用 Inter-GPS 的符号化定义规范，以保证与主流几何求解器的兼容性，后续也可基于该体系进行不同形式化逻辑之间的转换。
 
-从现有文件导入源码，使用 \clist[columbiablue]{lstlisting} 宏包，本模板预先定义了一基本格式 \clist{sty_basic} 以供使用，可以自定义新的样式。
+如表\ref{tab:text_to_formal_example}中的一个典型几何题为例：原始中文题目首先被翻译为英文题面，随后通过规则化匹配或借助大语言模型的模板生成能力，将题干中“已知条件—几何关系—求解目标”逐条抽取并写成谓词表达（如 \texttt{Equals}、\texttt{BisectsAngle}、\texttt{IsMidpointOf}、\texttt{Parallel}、\texttt{Find} 等）。这种表示方式能够把文本中相对松散、依赖上下文的叙述，显式拆解为可检查的对象与关系：例如，“直角”可等价为角度为90°，“平行”以线段对的形式给出；同理，长度相等、角相等、共线、点在圆上等常见约束也均可映射到统一的谓词空间。相比自然语言描述可能存在的省略、歧义与表达变体，形式化语言提供了更结构化、可组合且可验证的中间表示，既降低理解歧义，也便于后续自动评估、符号求解与推理过程核验。
 
-\begin{texcodeonly}
-\lstinputlisting[style=sty_basic,
-  language=matlab,
-  caption={标准粒子群算法},
-  label={listing:a_label}]{./Codes/pso.m}
-\end{texcodeonly}
-\lstinputlisting[style=sty_basic,
-                    language=matlab,
-                    caption={标准粒子群算法},
-                    label={listing:a_label}]{./Codes/pso.m}
+\begin{table}[H]
+    \centering
+    \caption{题目文本到形式化语言的转换示例}
+    \label{tab:text_to_formal_example}
+    \small
+    % 使用两列：第一列固定宽度放标签，第二列 X 自动填充剩余宽度放内容
+    \begin{tabularx}{\textwidth}{@{} l X @{}}
+        \toprule
+        类型    & 内容                                                                                                                                                            \\
+        \midrule
+
+        % 第一行：中文题目
+        题目文本  &
+        如图，在$\triangle ABC$中，$AB=5$, $AC=9$，$AD$是$\angle BAC$的角平分线，点$E$是$BC$的中点，$EF//AD$，则$AF$的长是？                                                                            \\
+        \addlinespace[0.5em] % 增加行间距
+
+        % 第二行：英文翻译
+        英文翻译  &
+        In triangle $ABC$, $AB = 5$, $AC = 9$, $AD$ is the angle bisector of $\angle BAC$, $E$ is the midpoint of $BC$, $EF$ is parallel to $AD$, then the length of $AF$ is? \\
+        \addlinespace[0.5em] % 增加行间距
+
+        % 第三行：形式化语言
+        形式化语言 &
+        \begin{minipage}[t]{\linewidth}
+            % \vspace{0pt}
+            {\ttfamily\small
+                Triangle(A,B,C)\\
+                Equals(LengthOf(Line(A,B)), 5)\\
+                Equals(LengthOf(Line(A,C)), 9)\\
+                BisectsAngle(Line(A,D), Angle(B,A,C))\\
+                IsMidpointOf(Point(E), Line(B,C))\\
+                Parallel(Line(E,F), Line(A,D))\\
+                Find(LengthOf(Line(A,F)))
+            }
+        \end{minipage}                                                                                                                                  \\
+
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+\subsubsection{题目文本的形式化转换}
+
+题目文本到形式化语言的映射本质上是一个高度结构化的语义解析任务。该任务要求模型严格遵循目标形式化语言的语法规范，对齐潜在的几何逻辑关系。为此，本研究以开源的 Qwen3-8B \cite{yang2025qwen3} 为基座，采用指令监督微调（Supervised Fine-Tuning）范式来训练专属的文本转换模型。为了验证该技术路线的有效性，下文将依次对该任务的三个关键环节展开详细论述：首先介绍微调与测试数据集的构建与扩充策略；其次阐明模型微调的具体实验设置；最后，通过对比实验，全面评估基于提示工程的通用大模型与本文微调模型在实际转换精度上的性能差异。
+
+\paragraph{微调与测试数据集的构建}
+高质量的指令数据是保证语言模型生成规范形式化语言的前提。本文的微调和测试数据集构建主要分为训练集扩充与独立测试集标注两个阶段。
+
+在训练集构建方面，本文首先从开源数据集 Geometry3K \cite{lu2021intergps} 与 FormalGeo7k \cite{zhang2023formalgeo} 中提取英文题干及其对应的形式化输出，构造基础的“英文文本 $\rightarrow$ 形式化语言”监督样本对。其次，为增强模型对中文几何术语的理解能力及跨语言映射能力，本文将收集到的中文几何题干与上述英文样本进行混合对齐，以提升模型对中英文几何表达的统一建模能力。在此基础上，本文针对训练集引入了基于大语言模型的数据扩充策略，主要包括对原始中文题干进行同义重写、句式结构调整以及冗余条件注入等操作。其中，同义重写例如将“在 $\triangle ABC$ 中”等价改写为“已知三角形 $ABC$”；冗余条件注入仅作为表面表达层面的扰动，不引入会改变原有约束集合边界的伪几何条件，从而保证扩充样本与原始样本在形式化语义上的一致性。通过上述策略，本文将有效微调样本规模扩充至原始数据的 5 倍，形成约 1.6 万条训练样本，以用于提升模型对复杂、非标准自然语言表述的泛化能力。
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth,keepaspectratio]{figures/fine_tune_data.pdf}
+    \caption{微调数据构建流程}
+    \label{fig:fine_tune_data}
+\end{figure}
+
+在测试集构建阶段，本实验从前文已构造的长链条数据集中独立采样了约 1000 条几何题干作为测试数据。为保证评估标签的质量，测试集中的所有形式化语言均采用人工标注，并由具备相关学科背景的研究人员进行多轮交叉校验。此外，该测试集与微调所用的训练数据严格正交，排除了数据泄露（Data Leakage）的潜在风险。这批校验后的样本作为后续对比实验的基准数据（Ground Truth），为精确匹配率等核心量化指标的计算提供了事实依据。
+
+\paragraph{实验设置与微调流程}
+为了全面评估本工作微调方法在文本到形式化语言转换上的有效性，本章设置了两类对比基线：第一类是基于少样本提示（Few-shot Prompt）的通用大模型，这类模型不进行权重更新，仅依赖上下文学习能力来捕捉形式化语言的映射规律；第二类是同等参数规模（约 8B--9B）且经过相同特定任务微调的开源模型，用于验证不同基座模型在吸收垂直领域知识后的真实表现。
+% 其中使用的对比模型包括：
+
+% Llama-3.1-8B\cite{grattafiori2024llama}：由 Meta 团队推出的开源大语言模型，拥有 80 亿参数。该版本在指令遵循、长上下文窗口以及复杂逻辑推理能力上进行了显著增强，是目前具有广泛影响力的开源基座之一。
+
+% GLM-4-9B\cite{glm2024chatglm}：由智谱 AI 团队推出的新一代开源双语大语言模型。其具有约 90 亿参数，在语义理解、代码生成和形式化指令处理上展现出了卓越的性能与泛化能力。
+
+% Qwen3-8B\cite{yang2025qwen3}：由阿里云通义千问团队推出的新一代开源语言模型。该模型在海量高质量中英文及代码语料上进行训练，凭借其扎实的基座底力，在各类自然语言处理与结构化输出任务中表现优异。
+
+% GPT-4o mini\cite{hurst2024gpt4o}：由 OpenAI 推出的一款轻量级、高性价比大语言模型。它在保持较快推理速度与极低调用成本的同时，保留了强大的文本理解与指令遵循能力，适合高效的少样本验证。
+
+% DeepSeek-V3\cite{liu2024deepseek}：是由 DeepSeek 团队推出的一款强大的通用大语言模型，采用大规模指令微调与强化对齐策略，旨在提升在多任务、多领域场景下的泛化能力，兼顾了极高的语言理解与推理质量。
+
+% GPT-4o\cite{hurst2024gpt4o}：由 OpenAI 推出的旗舰级大模型。作为目前行业内性能顶尖的模型之一，它具备极强的语义解析、复杂逻辑推理和跨模态映射能力，在本实验中代表了闭源通用大模型的能力上限。
+
+在微调流程上，本文采用监督微调范式。模型以自然语言题干作为输入，以目标形式化语言代码作为输出，通过最小化交叉熵损失（Cross-Entropy Loss）来优化模型权重，使其掌握跨语言的几何关系转换与严格的语法规则。为兼顾显存效率与训练效果，实验在单张 NVIDIA A800 (80GB) GPU 上完成，并引入了 LoRA (Low-Rank Adaptation) 参数高效微调技术。
+% 具体的超参数配置如表 \ref{tab:finetune_params} 所示。
+
+% \begin{table}[H]
+%     \centering
+%     \caption{LoRA 微调超参数设置}
+%     \label{tab:finetune_params}
+%     % 关键：设置表格内字体为正文大小（\small 可根据需求微调，\normalsize 是正文默认）
+%     \small  % 若仍觉大，可改用 \footnotesize；想和正文完全一致用 \normalsize
+%     \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}ccc@{}}
+%         \toprule
+%         参数名称 & 参数值 & 参数说明 \\
+%         \midrule
+%         epochs                        & 3                 & 训练轮数 \\
+%         optimizer                     & AdamW             & 优化器类型 \\
+%         lora\_rank / $r$              & 32                & LoRA 低秩矩阵的秩 \\
+%         lora\_alpha                   & 64                & LoRA 缩放系数 \\
+%         batch\_size                   & 16                & 批量大小 \\
+%         warmup\_ratio                 & 0.05              & 学习率预热比例 \\
+%         learning\_rate                & $2\times 10^{-4}$ & 学习率 \\
+%         max\_sequence\_length         & 2048              & 最大序列长度 \\
+%         \bottomrule
+%     \end{tabular*}
+%     \normalsize
+% \end{table}
+
+\paragraph{文本转换实验结果}
+为客观评估模型将自然语言转换为形式化语言的质量，本文采用语法合法率（Syntax Valid Rate, SVR）、约束召回率（Constraint Recall, CR）与精确匹配率（Exact Match, EM）三项核心指标。其具体定义如下：
+
+语法合法率 (SVR)：衡量模型生成的形式化语言表达式是否符合目标的语法规范，能够被文本解析器\cite{lu2021intergps}成功编译而无语法错误。
+\begin{equation}
+    \mathrm{SVR} = \frac{N_{\mathrm{valid}}}{N_{\mathrm{total}}} \times 100\%,
+\end{equation}
+其中，$N_{\mathrm{total}}$ 为测试集样本总数，$N_{\mathrm{valid}}$ 为语法合法的样本数。
+
+约束召回率 (CR)：评估模型对原始文本中关键几何条件或逻辑约束的覆盖程度，反映了信息的无损转换能力。
+\begin{equation}
+    \mathrm{CR} = \frac{\sum_{i=1}^{N_{\mathrm{total}}} |C_{\mathrm{pred}}^{(i)} \cap C_{\mathrm{gt}}^{(i)}|}{\sum_{i=1}^{N_{\mathrm{total}}} |C_{\mathrm{gt}}^{(i)}|} \times 100\%,
+\end{equation}
+其中，$C_{\mathrm{pred}}^{(i)}$ 和 $C_{\mathrm{gt}}^{(i)}$ 分别表示第 $i$ 个样本中模型预测的约束集合与人工标注的真实约束集合。
+
+精确匹配率 (EM)：要求模型生成的完整语句与真实标签完全一致（或在抽象语法树上逻辑等价），是衡量下游符号求解可靠性的最严格标准。
+\begin{equation}
+    \mathrm{EM} = \frac{N_{\mathrm{match}}}{N_{\mathrm{total}}} \times 100\%,
+\end{equation}
+其中，$N_{\mathrm{match}}$ 为实现精确匹配的样本数量。
+
+\begin{table}[H]
+    \centering
+    \caption{不同模型在文本到形式化语言转换任务上的性能对比}
+    \label{tab:text_results}
+    \small
+    \setlength{\tabcolsep}{6pt}
+    \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lccc}
+        \toprule
+        模型 & 语法合法率 (\%) & 约束召回率 (\%) & 精确匹配率 (\%) \\
+        \midrule
+
+        \multicolumn{4}{@{}l}{\small\textit{Few-shot Prompt-based Models}} \\
+        Llama-3.1-8B\cite{grattafiori2024llama}                & 80.1 & 73.2 & 60.5 \\
+        GLM-4-9B\cite{glm2024chatglm}                          & 81.3 & 74.7 & 62.4 \\
+        Qwen3-8B\cite{yang2025qwen3}                           & 82.6 & 75.6 & 64.2 \\
+        GPT-4o mini\cite{hurst2024gpt4o}                       & 92.1 & 89.7 & 84.5 \\
+        DeepSeek-V3\cite{liu2024deepseek}                      & 92.4 & \underline{90.5} & 85.9 \\
+        \textbf{GPT-4o\cite{hurst2024gpt4o}}                            & \textbf{94.5} & \textbf{92.8} & \textbf{90.2} \\
+
+        \cmidrule{1-4}
+
+        \multicolumn{4}{@{}l}{\small\textit{Fine-tuning-based Models (\textasciitilde 8B--9B)}} \\
+        Llama-3.1-8B\cite{grattafiori2024llama}                & 89.2 & 86.1 & 82.3 \\
+        GLM-4-9B\cite{glm2024chatglm}                          & 91.5 & 87.8 & 83.6 \\
+        \textbf{Qwen3-8B\cite{yang2025qwen3} (Ours)}           & \underline{92.8} & 90.2 & \underline{86.1} \\
+
+        \bottomrule
+    \end{tabular*}
+
+    % \vspace{1ex}
+    % \raggedright
+    % \footnotesize 注：\textbf{加粗}与\underline{下划线}分别表示各项指标中的最优与次优结果。
+
+    \normalsize
+\end{table}
+
+
+各模型在测试集上的具体评估结果如表 \ref{tab:text_results} 所示。从整体对比结果可以看出，未微调的开源模型（Llama-3.1-8B、GLM-4-9B、Qwen3-8B）在三项指标上整体偏低，其精确匹配率仅分布在 60.5\% 至 64.2\% 之间，尚不足以稳定支撑下游的符号求解或语义理解。而在少量样本提示的辅助下，闭源模型 GPT-4o mini、GPT-4o 以及千亿级模型 DeepSeek-V3 均表现出明显更强的结构化生成能力，说明大规模参数模型在上下文模式归纳以及语法约束遵循方面具有显著优势。
+
+进一步观察微调组可知，经过特定数据与 LoRA 微调后，Qwen3-8B 的性能显著提升，其语法合法率、约束召回率与精确匹配率较未微调前分别提升了 10.2、14.6 与 21.9 个百分点。在与强基线模型的横向对比中，该微调模型不仅在语法合法率（92.8\%）与精确匹配率（86.1\%）上超过了 GPT-4o mini 和 DeepSeek-V3，约束召回率（90.2\%）也与 DeepSeek-V3 的 90.5\% 基本接近。由此可以看出，针对任务进行高质量监督微调后，小参数模型同样能够在结构化输出任务上取得较好的效果。
+
+尽管微调后的 Qwen3-8B 在三项指标上仍低于最优的 GPT-4o，但考虑到其参数规模仅约 80 亿，能够取得上述结果已经说明该方案具有较强的任务适应能力。同时，相比依赖远程调用的大规模闭源模型，Qwen3-8B 更便于本地部署，使用成本也更低。因此，本文方案在保证较好转换效果的同时，也能满足下游求解需求、适合实际系统落地。
+
+\subsubsection{几何图像的形式化解析}
+
+在几何问题中，题目图像不仅起到辅助说明作用，还包含了大量题干文本中未显式给出的几何约束，例如点的共线关系、圆与直线的相交关系，以及由直角标记、平行标记等局部符号所表达的约束条件。因此，除了将题目文本转换为形式化表达之外，还需要进一步对几何图像进行形式化解析，从而获得完整的多模态结构化表示。
+
+本文采用 PGDPNet\cite{zhang2022pgdp} 作为几何图像解析工具，该模型面向平面几何图解析任务，能够对题图中的基础几何图元及其关系进行识别与建模，并输出结构化解析结果。利用该模型进行解析推理，将图像中的点、线、圆及其相互关系转换为图像侧的形式化语言。然而，PGDPNet 的解析过程高度依赖文本标签与局部符号信息的辅助，尤其需要较为准确的 OCR（光学字符识别）结果作为输入。考虑到通用 OCR 模型在几何题图场景下容易受到目标微小、图元紧邻以及符号遮挡等因素的干扰，本文基于当前数据集构建了一个小规模的几何场景 OCR 训练集，并在此基础上对 PaddleOCR\cite{cui2025paddleocr} 进行微调，以针对性提升点名称、圆名称等对象文本以及几何符号的识别效果。整体流程如图 \ref{fig:image_parsing_pipeline} 所示。
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=1\textwidth]{figures/pipeline_flowchart.pdf}
+    \caption{基于 OCR 微调与 PGDPNet 的几何图像形式化解析流程}
+    \label{fig:image_parsing_pipeline}
+\end{figure}
+
+具体而言，首先对数据集中的几何图像进行细粒度标注，标注信息涵盖文本边界框（BBox）的坐标、文本内容，以及直角、平行等局部几何符号。在训练阶段，采用预训练的文本检测与识别模型作为初始参数，并在几何图像数据上进行微调。微调结束后，将模型部署推理并集成至 PGDPNet 框架中。在该阶段，系统综合利用 OCR 模块提取的文本框与文本内容，结合图像原有的基础几何图元展开空间与语义关系解析，最终生成图像侧的形式化语言表示。
+% 此举旨在提升模型对当前任务场景的适配度，特别是针对几何题图中“目标小、文本短、符号干扰强”等数据特性，有效增强了模型的检测与识别能力。
+
+在自动解析的基础上，本文对生成的图像侧形式化语言进行了人工校验与修正，最终为整个数据集补充了高质量的几何图像形式化标注。该标注不仅能够与题目文本侧的形式化表达共同构成统一的结构化表示，也为后续符号求解、模型评测与误差分析提供了可靠基础。
+% 最后，在结果校验与闭环优化阶段，所有由图像生成的解析结果均经过严密的人工复核。在此过程中，本文系统地梳理并记录了图像解析任务的典型失败模式：例如，由于点名文本重叠遮挡导致的字符错认、直角符号与图像实线边界融合导致的漏检，以及在近共线结构下系统极易产生的线段误分割现象。针对这些问题，人工校验不仅修正了当前数据集的误检与漏检，也为后续视觉解析工具的迭代提供了关键的错误先验知识。
+
+% \subsubsection{OCR 工具对比与一致性分析}
+% 考虑到 OCR 质量会显著影响后续的图元解析，本工作进一步比较了不同 OCR 方案在同一 \emph{PGDPNet} 解析配置下的表现，包括人工标注、\emph{PaddleOCR} 与 \emph{DeepSeekOCR}。对比的输出以图像侧形式化语言为单位进行统计，分析不同方案在点名召回、直角符号识别、以及最终谓词集合一致性方面的差异。相关对比结果如图~\ref{fig:ocr_formal_compare} 所示（此处使用占位符，最终替换为实验图）。
+
+为了量化评估 OCR 质量对下游图像形式化解析的影响，本文在统一的 PGDPNet 解析框架下，对比了不同 OCR 输入来源下的解析性能。具体而言，对比基准包含四类：人工标注、微调后的 PaddleOCR（PaddleOCR-FT）、原生 PaddleOCR~\cite{cui2025paddleocr} 以及通用模型 DeepSeekOCR~\cite{wei2025deepseekocr}。
+% 此处“人工标注”仅指人工提供图像中的文本检测框与识别文本内容，并将其作为上游 OCR 输入接入 PGDPNet 进行后续解析，而非人工直接构造图像的形式化语言结果。
+以经人工严格校验后的图元（点、线、圆）及形式化语言结果为真实基准，统计各方法的正确率；同时，以各方法自身输出的实例总数为分母，计算其误检与冗余程度对应的多余率。对比结果如图~\ref{fig:ocr_performance} 所示。
+\begin{figure}[H]
+    \centering
+    % 第一张图：正确率对比
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/ocr_accuracy.pdf}
+        \caption{各方法识别正确率对比}
+        \label{subfig:ocr_accuracy}
+    \end{subfigure}
+    \hfill % 在两张图之间插入弹性空白
+    % 第二张图：多余率对比
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/ocr_excess_rate.pdf}
+        \caption{各方法识别多余率对比}
+        \label{subfig:ocr_excess_rate}
+    \end{subfigure}
+
+    % 大图的题注和标签
+    \caption{不同OCR模型在各几何图元及形式化语言上的识别性能对比}
+    \label{fig:ocr_performance}
+\end{figure}
+
+可以观察到，常规通用 OCR 模型在几何图表场景下存在明显瓶颈：原生 PaddleOCR 与 DeepSeekOCR 在形式化语言层面的正确率仅为 32\% 和 11\%，且多余率分别达到 44\% 和 45\%。这表明，通用 OCR 模型容易受到几何题图中微小目标、紧邻图元及复杂符号的干扰，从而影响后续 PGDPNet 的关系解析效果。相比之下，经过几何场景数据微调的 PaddleOCR-FT 性能获得了显著提升，其在点和形式化语言上的正确率分别达到 83\% 和 76\%，并将形式化语言的多余率降低至 23\%。尽管受限于几何图像本身较高的解析难度，自动方法在圆等复杂图元上的表现仍与人工提供 OCR 输入时的结果存在一定差距，但该对比实验充分说明了领域垂直训练的有效性。微调后的模型能够更好适应几何图像的分布特征，在保证基本解析精度的同时，显著降低了后续构建同类大规模数据集时对人工 OCR 标注与校验的依赖。
+
+% \subsubsection{小结}
+% 综上所述，本工作通过引入微调大语言模型处理自然语言题干，并联合微调 OCR 与 PGDPNet 解析几何图像，成功实现了文本侧与图像侧的双通道转换，为整个数据集构建了完整、准确的形式化语言标注。这种多模态的统一结构化表示，不仅能够直接作为符号求解器的输入以支持可复现的推理与验证，更为后续的大模型几何理解推理能力评测、多模态对齐训练以及自动定理证明等相关工作提供了可靠的数据基础与标准化的评估接口。
+
+% \textcolor{red}{1. 形式化语言类型统计（点线圆）和Inter-GPS 比较。2. 形式化语言多=图像复杂，可以画一个趋势图类似物}
+
+\xsubsection{数据集统计特征}{Statistical Characteristics of the Dataset}
+
+经过严格筛选与清洗后，本文最终构建了一个包含 2097 道几何题目的数据集，其中计算题 1274 道，证明题 823 道。数据集中的每个样本均由题目文本和对应几何图像共同构成，属于典型的图像--文本多模态数据。图~\ref{fig:data_anna_example} 展示了一个几何题目样本及其结构化标注示例。标注信息主要涵盖三个部分：首先是题目元数据，包括题目类型、数值结果、难度等级、辅助线类型、候选选项及单位信息等；其次是语义逻辑形式，包括图形逻辑表达与文本逻辑表达；最后是求解过程参考信息，包括参考求解过程、步骤数以及分步解释等。
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{figures/data_anna_example.pdf}
+    \caption{几何题目样本的结构化标注示例}
+    \label{fig:data_anna_example}
+\end{figure}
+
+数据集的整体分布情况如图\ref{fig:dataset_steps_count}所示。为便于统计推理链长度，本文以参考解中的逻辑推理步骤数作为量化依据。其中，求解过程包含 $1\sim4$ 个推理步骤的题目共 509 题，占比约 24.3\%；包含 5 个及以上步骤的长链条题目共 1588 题，占比约 75.7\%。长链条问题是本基准的核心部分，用于重点评估模型的持续推理能力。求解步数分布如图\ref{fig:dataset_steps_count}所示，其中最长的步数为26步，最短步数1步，主要集中在$3\sim10$步的区间，能够较好地反映中考级别几何题目的推理深度。此外，从参考解答的步骤统计来看，所有题目样本的平均推理步数约为7.44步，能够较好地覆盖长链推理所需的过程推断与定理使用情形。
+% 1-4 509 5-12 1333 13-26 255
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/dataset_steps_count.png}
+    \caption{数据集题目推理步骤数分布}
+    \label{fig:dataset_steps_count}
+\end{figure}
+
+保留一定比例的短步骤题目主要基于以下两方面考量。
+首先，保持难度分布的完整性与数据的真实性。在真实的几何问题分布中，简单题也是重要组成部分。其次，作为基础能力的“对照组”。如果模型在短步骤题目上表现不佳，说明其基础几何概念理解存在缺陷；若基础题表现良好但在长链条题上显著下降，则能更精准地定位其多步推理能力的瓶颈。最后，这也支持了渐进式推理的研究，有助于探索模型从浅层推理向深层推理迁移的行为模式。
+
+在上述数据集统计的基础上，本文进一步对形式化表示的构建结果进行分析。需要说明的是，考虑到当前符号系统尚不能有效支持证明题求解过程的形式化表示与自动验证，本文侧重于将最终答案为数值的计算题作为文本形式化转换的主要对象。基于前文所述的微调方法以及微调模型 Qwen3-8B\cite{yang2025qwen3}，并结合人工标注与校验，最终共整理得到 1274 道计算题的文本形式化表示。为保证生成结果的规范性与可执行性，所有构建的文本形式化语言均已通过 Inter-GPS~\cite{lu2021intergps}、GeoDRL~\cite{peng2023geodrl}等几何求解方法的文本解析器（Text Parser）测试，确保其能够被正确解析。统计结果显示，数据集累计生成 7389 条文本表达式，平均每题约对应 5.80 条形式化表达式。
+
+\begin{figure}[htbp]
+    \centering
+    % 第一张图：表达式条数分布
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/figure_a_expression_counts.png}
+        \caption{形式化表达式条数分布}
+        \label{subfig:expr_count_dist}
+    \end{subfigure}
+    \hfill % 在两张图之间插入弹性空白
+    % 第二张图：谓词分布（极简参数版）
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/figure_b_predicate_frequencies.png}
+        \caption{最高频谓词分布}
+        \label{subfig:predicate_dist}
+    \end{subfigure}
+
+    % 大图的题注和标签
+    \caption{几何计算题文本形式化语言统计分析}
+    \label{fig:text_logic_analysis}
+\end{figure}
+
+图 \ref{subfig:expr_count_dist} 与图 \ref{subfig:predicate_dist} 分别展示了单题文本形式化表达式条数及高频谓词的分布情况。由统计可知，单题对应的表达式条数主要集中在 4 至 8 条之间（以 5 条和 6 条最为普遍），表明完整描述几何题通常需要多条关联条件的配合。在谓词类型方面，涉及长度关系的谓词占据主导地位，其中描述线段具体长度的 \texttt{Equals(LengthOf(Line), Number)} 出现频率最高（1028 次），用于表示求解目标的 \texttt{Find(LengthOf(Line))} 次之；此外，描述垂直、角度及线段相等关系的谓词也具有较高频次。这些分布特征客观反映了初中几何计算题的核心考点与求解侧重点，为后续模型训练提供了重要的数据参考。
+
+在图像侧的几何信息的形式化构建方面，由于考卷中几何题目的核心数量条件通常会在题目文本中完整给出，图像主要起到辅助理解与提供拓扑结构的作用，因此图像侧提取的形式化语言相对简单和基础。统计结果显示，数据集共包含 1673 张图像，解析提取点数目 10988 个、线数目 20194 条、圆数目 747 个，累计生成图像侧形式化语言 11006 条，平均每张图像对应 6.58 条。图像侧的形式化语言主要包含点共线、点共圆等拓扑关联以及垂直、平行等基础位置关系，其主要谓词类型及数量分布如表 \ref{tab:image_predicates} 所示。
+
+\begin{table}[htbp]
+    \centering
+    \caption{图像侧形式化语言主要谓词分布统计}
+    \label{tab:image_predicates}
+    \small
+    \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}clc@{}}
+        \toprule
+        谓词含义 & 形式化语言表示 & 数量（条） \\
+        \midrule
+        点在线上 & \texttt{PointLiesOnLine(Point, Line)} & 7220 \\
+        点在圆上 & \texttt{PointLiesOnCircle(Point, Circle)} & 2843 \\
+        垂直关系 & \texttt{Perpendicular(Line, Line)} & 568 \\
+        平行关系 & \texttt{Parallel(Line, Line)} & 216 \\
+        角度数值 & \texttt{Equals(MeasureOf(Angle), Number)} & 159 \\
+        \bottomrule
+    \end{tabular*}
+\end{table}
+
+% \xsubsection{数据集扩充策略}{Data Augmentation Strategies}
+% 如果是合成扩充，建议明确“只用于训练/仅作数据增强”，以及如何避免污染测试集）
+% 可以放到后面的求解模块中，用于训练。这里可以不写了。
+
+% 从PGPS9K数据集扩充方式：
+% GLLava 论文中 重提问、答案掩盖 + 询问条件、图像扰动
+% GeoGramBench可以看看
+% GeoEval的方式，具体见ppt 几何问题数据集v2
+
+\xsection{评测协议与指标}{Evaluation Protocols and Metrics}
+
+\xsubsection{任务定义}{Task Definition}
+基于前文构建的 GeoLStep 数据集，本文进一步设计了标准化的几何推理评测基准。在该基准下，几何问题求解任务可形式化定义为：给定一道几何题目的自然语言描述文本 $\mathcal{T}$ 与对应的几何图像 $\mathcal{I}$，模型需要输出最终求解结果 $\mathcal{A}$ 以及得到该结果的完整推理步骤序列 $\mathcal{S}$。
+
+在信息利用方面，规定受测模型可以直接利用输入的图文多模态信息，但不允许在求解过程中调用外部定理知识库或额外的符号求解工具。作出这一限制的目的在于尽可能排除外部工具带来的附加影响，从而在统一条件下比较不同方法在几何问题理解与推理任务中的性能差异。
+
+\xsubsection{数据划分与评估指标}{Data Splits and Metrics}
+数据集按 6:2:2 的比例随机划分为训练集、验证集和测试集。为了在防止数据泄露的同时保证各子集难度分布一致，本章采用了基于求解步长的分层采样，并进行了严格的交叉去重。
+
+传统几何题评测通常依赖人工评审或者规则匹配最终结果，但仅依据最终答案正确率又难以反映模型在中间推理过程中可能出现的逻辑错误。因此在指标设计上，本文定义了答案准确率（$\mathrm{Acc}_{\text{ans}}$）和过程逻辑正确率（$\mathrm{Acc}_{\text{step}}$）来评估模型求解能力：
+
+答案准确率考察最终输出结果匹配程度。计算题的正确性基于数值容差判定，证明题则取决于结论是否与参考答案一致：
+\begin{equation}
+    \mathrm{Acc}_{\text{ans}}=\frac{N_{\text{correct}}}{N}\times 100\%
+    \label{eq:ans_acc},
+\end{equation}
+其中，$N$ 表示题目总数，$N_{\text{correct}}$ 表示答案预测正确的题目数。
+
+过程逻辑正确率用于量化模型推理逻辑的严密性。一个生成的步骤必须同时满足前提充分、定理引用恰当且演绎正确，才能被视为有效：
+\begin{equation}
+    \mathrm{Acc}_{\text{step}}=\frac{N_{\text{valid}}}{N_{\text{all}}}\times 100\%,
+    \label{eq:step_acc}
+\end{equation}
+其中，$N_{\text{all}}$ 为总步骤数，$N_{\text{valid}}$ 为有效步骤数。
+
+\xsubsection{评估机制}{Evaluation Mechanism}
+
+在结果评判阶段，为确保评估的严谨性，答案准确率（$\mathrm{Acc}_{\text{ans}}$）的计算采用正则提取、模型校验的双重机制：首先提取模型输出的最终答案，并与标准答案进行硬匹配；为避免因数学表达格式差异导致的误判，进一步引入评估模型对匹配失败的样例进行二次等价性复核。在评测设置中，本文以参考解的推理步骤数对题目进行难度分层，用于近似刻画推理链长度，并据此分析模型在不同长链条区间下的性能变化。
+
+过程逻辑正确率计算上，基于前文数据集提供的参考求解过程与解释标注信息，本文使用自动化的过程评估机制，引入多模态大模型（如OpenAI o4-mini~\cite{openai2025o3o4mini}、Gemini-2.5-Pro~\cite{comanici2025gemini25}）作为主要评估器。基本思路为：通过设计结构化评测提示模板，对待测模型生成的每一个推理过程进行逐步审查，并要求评估器在欧氏几何公理体系与题目已知条件约束下作出判断，指出当前步骤是否正确。
+
+具体而言，对于任意步骤 $s_i$，评估过程主要考察前提合法性、定理适用性与推导正确性三个方面，即判断该步骤所依赖的几何条件是否已经由题干文本、图像信息或前序推理过程给出，判断该步骤所引用的几何定理、公理或性质是否适用于当前拓扑结构与推理上下文，以及判断由该步骤得到的中间结论在逻辑关系与数值计算上是否正确。
+
+为进一步比较不同评估模型在过程评估任务中的可靠性，本文随机抽取了 400 个推理样本，并以 OpenAI o3~\cite{openai2025o3o4mini} 的求解结果作为统一评估对象，组织人工专家对其推理过程与最终答案进行了校验，形成参考标注。在此基础上，分别使用 Claude-4.5~\cite{anthropic2025sonnet45}、Gemini-2.5-Pro~\cite{comanici2025gemini25}、GPT-4o~\cite{hurst2024gpt4o} 和 OpenAI o4-mini~\cite{openai2025o3o4mini} 对同一批样本进行自动评估，并将其判断结果与人工专家标注进行对比，统计步骤层面与答案层面的一致性，结果如表 \ref{tab:evaluator_comparison} 所示。可以看出，o4-mini 在步骤评估一致率和答案评估一致率上分别达到 97.6\% 和 99.58\%，均优于其他候选评估模型，说明其自动评估结果与人工判断最为接近。因此，后续实验中的过程逻辑正确率评估统一采用 o4-mini 作为自动评估器。
+
+\begin{table*}[htbp]
+    \centering
+    \small
+    \caption{不同评估模型与人工专家标注结果的一致性对比}
+    \label{tab:evaluator_comparison}
+    \begin{tabularx}{\textwidth}{XYY}
+        \toprule
+        评估模型 & 步骤评估一致率（\%） & 答案评估一致率（\%） \\
+        \midrule
+        Claude-4.5~\cite{anthropic2025sonnet45}    & 91.88 & 96.67 \\
+        GPT-4o~\cite{hurst2024gpt4o}               & 91.95 & 97.08 \\
+        Gemini-2.5-Pro~\cite{comanici2025gemini25} & 93.70 & 98.75 \\
+        \textbf{o4-mini~\cite{openai2025o3o4mini}} & \textbf{97.60} & \textbf{99.58} \\
+        \bottomrule
+    \end{tabularx}
+\end{table*}
+
+
+\xsection{基线实验}{Baseline Experiments}
+
+\xsubsection{基线模型与设置}{Models and Settings}
+
+\subsubsection{对比模型}
+为评估不同方法在当前基准上的长链条平面几何推理能力，本工作选取了三类具有代表性的基线模型：几何专用模型（Geometry Models）、常规非思考型大语言模型（Standard LLMs）和思考型大语言模型（Thinking LLMs）。这一划分主要对应不同的求解范式：几何专用模型通常依赖形式化表示和定制化求解框架，而思考型与常规大语言模型则主要依托通用图文解析与生成能力完成求解。
+
+几何专用模型面向几何任务专门设计，能够较好反映传统几何求解技术的发展水平。例如，Inter-GPS~\cite{lu2021intergps} 将自然语言题干与几何图像解析为形式化语言，并结合定理预测与符号推理完成求解；GeoDRL~\cite{peng2023geodrl} 在逻辑图推理框架中引入强化学习，以优化定理选择策略与搜索路径；Geoformer~\cite{chen2022unigeo} 则将几何计算与证明过程统一建模为序列生成问题。这类方法通常建立在规则系统、符号表示或专用推理框架之上，具有较强的任务针对性。此外，本工作还选用了 G-LLaVA-13B~\cite{gao2023gllava} 与 GeoX~\cite{xia2024geox} 等面向几何任务训练或微调的多模态模型，用于考察几何垂域视觉语言模型在该基准上的实际表现。
+
+通用大模型进一步划分为常规型与思考型两类。类似 GPT-4o~\cite{hurst2024gpt4o}、Claude-4~\cite{anthropic2025claude4} 等常规非思考型大语言模型虽然具备较强的图文理解与生成能力，但并未针对长链推理过程进行显式强化，对其进行测试有助于分析通用模型在复杂几何任务中的原生推理稳定性。思考型模型如 o4-mini~\cite{openai2025o3o4mini} 和 Gemini-2.5-Pro~\cite{comanici2025gemini25}，能够在生成过程中显式展开中间推理过程，因此在多步逻辑推导任务中通常表现更强，可作为观察大语言模型几何推理能力上限的重要参照。
+
+\subsubsection{评测设置}
+为保证评估结果的公平性与可比性，本工作对不同模型的部署方式、提示策略及解码参数等设置进行了统一控制。
+
+在部署方式方面，几何专用模型均基于其官方代码仓库与推荐配置在本地复现，并在两张 NVIDIA A800（80GB）GPU 上完成部署和推理。对于闭源通用大模型，实验中统一采用远程 API 方式调用；对于开源通用模型，则按照官方推荐环境进行本地部署与推理。
+
+在模型输入方面，部分几何专用模型受到输入形式的限制，无法直接处理原始图像与自然语言题干，因此实验中使用的是前文构建的计算题测试子集及其配套的形式化表示资源，并直接将其中预先标注的形式化语言作为模型输入，而不额外引入图文解析预处理模块。这样可以尽量避免视觉识别与文本解析误差对后续求解过程的干扰，使评估结果更集中地反映模型本身的几何推理与求解能力。基于这一设定，本文对这部分几何专用模型仅统计最终求解准确率，而不进一步评估其中间推理过程的正确性。相比之下，通用大语言模型均直接接收原始几何图像与题干文本作为输入，以尽可能保留题目的原始信息，并减少中间表示转换带来的额外偏差。
+
+在提示策略上，所有通用大语言模型均采用零样本（Zero-shot）设置，不提供示例，仅通过任务指令约束输出格式与推理过程。采用这一设置主要有两方面考虑：一方面，少样本（Few-shot）提示容易引入额外的上下文增益，使模型性能受到示例选择与示例质量的影响；另一方面，零样本评测更符合本工作关注模型原生长链条推理能力的目标。提示词（Prompt）要求模型依据题目给定信息逐步推导，明确指出所使用的几何性质、定理或等量关系，并按照统一格式输出最终答案。本文采用的英文与中文提示词模板如图~\ref{fig:prompt_example}所示。
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=5.8cm]{figures/prompt_example.pdf}
+    \caption{大语言模型提示词示例}
+    \label{fig:prompt_example}
+\end{figure}
+
+为进一步降低不同 API 接口默认配置带来的随机性干扰，本文统一设定了大模型调用的核心生成控制参数，对于部分接口参数定义不完全一致的模型，遵循“语义对齐、数值相等”的原则进行调整。具体配置如表~\ref{tab:reasoning_params} 所示。
+
+\begin{table}[H]
+    \centering
+    \small
+    \caption{核心生成控制参数设置表}
+    \label{tab:reasoning_params}
+    \renewcommand{\arraystretch}{0.85}
+    \begin{tabularx}{\textwidth}{YYY}
+        \toprule
+        参数名称 & 参数值 & 参数说明 \\
+        \midrule
+        n                  & $1$    & 候选返回数量 \\
+        seed               & $42$   & 随机种子 \\
+        top\_p             & $0.95$ & 核采样阈值 \\
+        temperature        & $0.2$  & 生成随机性控制 \\
+        max\_tokens        & $2048$ & 最大输出词元数 \\
+        frequency\_penalty & $0.0$  & 频率惩罚系数 \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+\xsubsection{基线实验结果}{Baseline Results}
+
+表 \ref{tab:model_comparison_final} 详细展示了不同模型在各个推理步数区间以及全集（All Steps）上的答案准确率（$\mathrm{Acc}_{\text{ans}}$）和过程逻辑正确率（$\mathrm{Acc}_{\text{step}}$）。
+% 表格中 1-4 步的区间主要对应了前文所述的短步骤对照组，而 5-12步及以上的区间则重点反映了模型在长链条题目上的表现。
+% 1-4steps 509题 5-12steps 1333题 13-26steps 255题
+\begin{table}[H]
+    \centering
+    \caption{不同模型在推理步数区间下的性能对比}
+    \label{tab:model_comparison_final}
+    \small
+    \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}l cc cc cc cc}
+        \toprule
+        \multirow{2}{*}{模型} & \multicolumn{2}{c}{1 -- 4 Steps} & \multicolumn{2}{c}{5 -- 12 Steps} & \multicolumn{2}{c}{13 -- 26 Steps} & \multicolumn{2}{c}{All Steps} \\
+        \cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7} \cmidrule(lr){8-9}
+        & $\mathrm{Acc}_{\text{ans}}$ & $\mathrm{Acc}_{\text{step}}$ & $\mathrm{Acc}_{\text{ans}}$ & $\mathrm{Acc}_{\text{step}}$ & $\mathrm{Acc}_{\text{ans}}$ & $\mathrm{Acc}_{\text{step}}$ & $\mathrm{Acc}_{\text{ans}}$ & $\mathrm{Acc}_{\text{step}}$ \\
+        \midrule
+        \multicolumn{9}{@{}l}{\textbf{\textit{Geometry Models}}} \\
+        Inter-GPS~\cite{lu2021intergps}             & 44.1 & -    & 35.4 & -    & 7.6 & -    & 34.1 & -    \\
+        GeoDRL~\cite{peng2023geodrl}               & 45.8 & -    & 37.4 & -    & 8.4 & -    & 35.9 & -    \\
+        Geoformer~\cite{chen2022unigeo}            & 49.0 & -    & 40.3 & -    & 8.2 & -    & 38.5 & -    \\
+        G-LLaVA-13B~\cite{gao2023gllava}           & 53.2 & 48.9 & \textbf{44.8} & 42.8 & 9.1 & 37.4 & 42.5 & 43.7 \\
+        GeoX~\cite{xia2024geox}                    & \textbf{53.2} & \textbf{50.6} & 45.0 & \textbf{44.3} & \textbf{9.7} & \textbf{38.9} & \textbf{42.7} & \textbf{45.2} \\
+        \midrule
+        \multicolumn{9}{@{}l}{\textbf{\textit{Standard LLMs}}} \\
+        GPT-4o~\cite{hurst2024gpt4o}              & 57.7 & 55.0 & 44.1 & 52.2 & 10.2 & 58.8 & 46.1 & 53.3 \\
+        InternVL-3-8B~\cite{zhu2025internvl3}      & 72.8 & 63.7 & 46.3 & 48.3 & 10.4 & 43.2 & 51.4 & 49.8 \\
+        Claude-4~\cite{anthropic2025claude4}       & 67.9 & 71.8 & 55.1 & 63.8 & 17.7 & \textbf{81.0} & 56.6 & 68.7 \\
+        GPT-4.1~\cite{openai2025gpt41}             & 70.2 & 67.2 & \textbf{56.1} & 65.5 & \textbf{18.9} & 74.7 & 57.8 & \textbf{69.7} \\
+        Qwen3-VL-8B~\cite{bai2025qwen3vl}          & \textbf{77.5} & \textbf{89.5} & 55.2 & \textbf{76.6} & 16.5 & 42.9 & \textbf{58.4} & 57.3 \\
+        \midrule
+        \multicolumn{9}{@{}l}{\textbf{\textit{Thinking LLMs}}} \\
+        Gemini-2.0-Thinking~\cite{google2024gemini2}  & 89.7 & 91.2 & 77.6 & 89.7 & 40.2 & 82.5 & 78.7 & 87.4 \\
+        Qwen3-VL-8B-Thinking~\cite{bai2025qwen3vl} & 89.5 & 93.1 & 79.5 & 95.2 & 62.2 & 93.0 & 80.7 & 94.5 \\
+        Claude-4.5-Thinking~\cite{anthropic2025sonnet45} & 89.3 & 95.4 & 82.3 & 85.9 & 51.2 & 81.7 & 81.7 & 85.7 \\
+        o4-mini~\cite{openai2025o3o4mini}          & 94.5 & 96.3 & \textbf{93.6} & 92.5 & \textbf{81.1} & 92.3 & \textbf{92.8} & 95.3 \\
+        Gemini-2.5-Pro~\cite{comanici2025gemini25} & \textbf{95.3} & \textbf{96.4} & 91.3 & \textbf{96.7} & 71.3 & \textbf{96.4} & 91.2 & \textbf{96.6} \\
+        \bottomrule
+    \end{tabular*}
+
+    % \vspace{1ex}
+    % \raggedright
+    % \footnotesize 注：\textbf{加粗}表示该类别下的最优结果。
+\end{table}
+
+如表 \ref{tab:model_comparison_final} 所示，实验结果呈现出显著的性能分层格局：思考型大模型展现出压倒性优势，标准大语言模型次之，而几何专用模型表现相对薄弱。这种性能差异不仅体现在最终答案的准确率上，在过程逻辑的严密性上也得到了验证。以全集结果为例，o4-mini 与 Gemini-2.5-Pro 的答案准确率分别为 92.8\% 和 91.2\%，其过程逻辑正确率也高达 95.3\% 与 96.6\%，显著领先于其他类别。相比之下，标准大语言模型虽然在短步骤题目中表现出一定的几何推理潜力，但在复杂场景下仍与思考型模型存在较大差距，而几何专用模型的全集答案准确率普遍受限于 40\% 左右。上述结果表明，几何推理能力的突破不仅依赖于领域知识的引入，更取决于模型在长程推理中维持逻辑一致性与中间状态的能力。
+
+从答案准确率（$\mathrm{Acc}_{\text{ans}}$）与过程逻辑正确率（$\mathrm{Acc}_{\text{step}}$）的关系可以发现，单一的答案评估指标不足以全面刻画模型的真实推理水平。实验观察到两类典型现象：一是部分模型虽然能够获得正确答案，但过程逻辑正确率较低，即通过不稳定的中间推理“偶然”得出正确结论；二是部分模型在复杂题项中虽能保持较高的步骤正确率，但由于长链条推理中的误差累积，最终答案的正确率并未同步提升。例如，Qwen3-VL-8B 在 1--4 步区间下的答案准确率为 77.5\%，但其全集过程逻辑正确率仅为 57.3\%；而 Gemini-2.5-Pro 虽然在全集答案准确率上略低于 o4-mini（91.2\% vs 92.8\%），但其过程逻辑正确率（96.6\%）显著高于后者。因此，本章引入双重评估维度，以区分“结果偶然正确”与“逻辑相对可靠”这两类不同的模型行为，并为几何推理能力分析提供一定的解释依据。
+
+值得注意的是，几何专用模型在本基准测试中并未展现出预期中的领域优势。尽管部分模型在实验中采用了人工标注的形式化语言输入，规避了视觉理解与文本解析带来的干扰，其整体表现仍大幅落后于通用大模型，且在长链条区间内性能衰减极快。
+% 例如，GeoDRL 在 13--26 步区间上的答案准确率仅为 8.4\%，其余专用模型亦处于相近水平。
+这表明，即便在理想的输入条件下，传统几何求解器在多条件整合、跨步骤信息保持等方面仍存在明显的瓶颈。
+% 本基准不仅量化了各模型的最终求解效能，更揭示了传统几何模型在应对复杂真实场景时的能力上限，充分体现了评测任务的区分度与分析价值。
+本基准不仅量化了各模型的最终求解效能，也揭示了传统几何模型在复杂真实场景中的能力上限。
+
+从难度分层的趋势看，长链条任务构成了当前几何推理研究的核心挑战。随着推理步数从 1--4 步增至 13--26 步，所有模型的性能均出现系统性下滑，但衰减幅度差异显著：几何专用模型在长链条区间几近失效，标准大语言模型性能大幅缩水，而思考型大模型虽保持领先，也难以完全避免长链推理带来的负面影响。实验结果证明，长链条几何题并非仅是搜索空间的线性增加，更是对约束保持、定理检索、误差抑制能力的综合考验。因此，本文构建的数据基准通过长链条划分与过程级评估，能够有效拉开模型间的能力差距，为后续几何推理模型的针对性优化提供科学可信的分析依据。
+
+% \subsubsection{案例分析}
+% \textcolor{red}{[在此处补充一段具体的定性案例分析（Case Study），例如：在测试集的某道 18 步证明题中，XX 模型在第 5 步未能满足推导正确性，凭空捏造了一条角平分线，导致后续虽然得出了正确答案，但其 $\mathrm{Acc}_{\text{step}}$ 被评估机制判定为极低。该案例直观地展现了本基准引入 $\mathrm{Acc}_{\text{step}}$ 指标以剥离“侥幸正确”现象的有效性。]}
+
+
+\xsection{本章小结}{Chapter Summary}
+
+本章围绕当前几何自动求解研究中缺乏复杂逻辑链条系统性评估的问题，构建了一个面向长链条平面几何推理的标准化多模态评测基准 GeoLStep。具体而言，本章定义了长链条几何推理的任务标准，构建了包含 2097 道高质量题目的多模态数据集，并设计了从自然语言与几何图像到结构化谓词表示的形式化转换工具链，以支撑符号化推理与自动化验证。在此基础上，本章对多类代表性模型进行了系统评测。实验结果表明，该基准对当前主流模型具有较高挑战性，尤其在超长推理链条下，模型在多步推理稳定性方面仍存在明显不足。本章的工作为分析多模态模型在复杂空间逻辑任务中的能力边界提供了可靠支撑，也为后续研究更高性能的几何推理方法奠定了评测基础。

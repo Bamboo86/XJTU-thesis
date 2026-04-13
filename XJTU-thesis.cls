@@ -117,6 +117,7 @@
 \definecolor{columbiablue}{rgb}{0.61, 0.87, 1.0}
 
 
+
 %%% chinese characters %%%
 %%% 定义一些中文字符 %%%
 \newcommand{\chinesecolon}{\char"FF1A}
@@ -128,6 +129,7 @@
 \newcommand{\chinesesemicolon}{\char"FF1B}
 \newcommand{\chineseleftparenthesis}{\char"FF08}
 \newcommand{\chineserightparenthesis}{\char"FF09}
+\newcommand{\chineseX}{\char"00D8}
 
 
 %%% misc %%%
@@ -159,10 +161,13 @@
 
 %%% AMS %%%
 \RequirePackage[tbtags]{amsmath}
-\RequirePackage[warnings-off={mathtools-colon,mathtools-overbracket}]{unicode-math}
+\RequirePackage{amssymb}
+% \RequirePackage[warnings-off={mathtools-colon,mathtools-overbracket}]{unicode-math}
 \RequirePackage{amsthm}
 \RequirePackage{thmtools}
+% 改
 \RequirePackage[xindy,symbols,order=letter,nogroupskip,nowarn]{glossaries}
+% \RequirePackage[makeindex,symbols,order=letter,nogroupskip,nowarn]{glossaries}
 
 
 %%% Symbols %%%
@@ -173,9 +178,12 @@
 \RequirePackage{commath}
 \RequirePackage{siunitx}
 \RequirePackage{mathtools}
-% \RequirePackage{mathspec}
+\RequirePackage{mathspec}
 
+\renewcommand{\Re}{\mathrm{Re}}
+\renewcommand{\Im}{\mathrm{Im}}
 \newcommand*{\diff}{\mathop{}\!\mathrm{d}}
+\newcommand{\mbf}[1]{\mathbf{#1}}
 \newcommand{\mbs}[1]{\boldsymbol{#1}}
 \newcommand{\Exp}{\mathrm{E}}
 \newcommand{\seq}[2]{#1_1,#1_2,\cdots,#1_#2}
@@ -264,31 +272,47 @@
   \newfontfamily{\heiti@letter}{SimHei}
   \newfontfamily{\kaiti@letter}{KaiTi}
   \newfontfamily{\songti@letter}{SimSun}
-  \newfontfamily{\kaiti}{STKaiti}
-  \setmainfont{Times New Roman}
-  \setmathfont{XITS Math}
-  \setmathfont[range={\mathcal,\mathbfcal},StylisticSet=1]{XITS Math}
+  \setallmainfonts{Times New Roman}
+  % \newfontfamily{\kaiti}{STKaiti}
+  % \setmainfont{Times New Roman}
+  % \setmathfont{XITS Math}
+  % \setmathfont[range={\mathcal,\mathbfcal},StylisticSet=1]{XITS Math}
 \else
   \ifmacosx
     \setCJKmainfont[AutoFakeBold=true]{Songti SC}
+    \newCJKfontfamily{\heiti}{STHeiti}
     \newfontfamily{\heiti@letter}{STHeiti}
+    \newCJKfontfamily{\songti}{Songti SC}
     \newfontfamily{\songti@letter}{Songti SC}
-    \newfontfamily{\kaiti}{STKaiti}
-    \setmainfont{Times New Roman}
-    \setmathfont{XITS Math}
-    \setmathfont[range={\mathcal,\mathbfcal},StylisticSet=1]{XITS Math}
+    \setallmainfonts{Times New Roman}
+    % \newfontfamily{\kaiti}{STKaiti}
+    % \setmainfont{Times New Roman}
+    % \setmathfont{XITS Math}
+    % \setmathfont[range={\mathcal,\mathbfcal},StylisticSet=1]{XITS Math}
   \else
     % 若使用方正字体需要自行下载并配置路径
     % \setCJKmainfont[AutoFakeBold=true,Path=/usr/local/share/fonts/]{fzsong.ttf}
     % \newfontfamily{\heiti@letter}[Path=/usr/local/share/fonts/]{fzhei.ttf}
     % \newfontfamily{\songti@letter}[Path=/usr/local/share/fonts/]{fzsong.ttf}
     % \newfontfamily{\kaiti}{STKaiti}
-    \setCJKmainfont[AutoFakeBold=true]{FandolSong}
-    \newfontfamily{\heiti@letter}{FandolHei}
-    \newfontfamily{\songti@letter}{FandolSong}
-    \setmainfont{XITS}
-    \setmathfont{XITS Math}
-    \setmathfont[range={\mathcal,\mathbfcal},StylisticSet=1]{XITS Math}
+
+
+    \setCJKmainfont[AutoFakeBold=true,Path=Materials/Fonts/]{fzsong.ttf}
+    \newfontfamily{\heiti@letter}[Path=Materials/Fonts/]{fzhei.ttf}
+    \newfontfamily{\songti@letter}[Path=Materials/Fonts/]{fzsong.ttf}
+    \setallmainfonts[
+      BoldFont=timesbd.ttf,
+      ItalicFont=timesi.ttf,
+      BoldItalicFont=timesbi.ttf,
+      Path=Materials/Fonts/,
+    ]{times.ttf}
+
+    % \setCJKmainfont[AutoFakeBold=true]{FandolSong}
+    % \newfontfamily{\heiti@letter}{FandolHei}
+    % \newfontfamily{\songti@letter}{FandolSong}
+    % \setmainfont{XITS}
+    % \setmathfont{XITS Math}
+    % \setmathfont[range={\mathcal,\mathbfcal},StylisticSet=1]{XITS Math}
   \fi
 \fi
 
@@ -491,7 +515,7 @@
 
 %%% algorithm %%%
 %%% 算法环境 %%%
-\RequirePackage[chapter]{algorithm}
+\RequirePackage[ruled, algochapter,linesnumbered,chapter]{algorithm}
 \RequirePackage{algpseudocode}
 \floatname{algorithm}{算法}
 
@@ -732,10 +756,16 @@
 %%% 浮动体 %%%
 \RequirePackage{float}
 \RequirePackage{newfloat}
-
+\RequirePackage{multirow}
 \RequirePackage{multicol}
+\RequirePackage{longtable}
 \RequirePackage{tabularray}
 \UseTblrLibrary{booktabs}
+
+\RequirePackage{tabu}
+\RequirePackage{tabularx}
+\RequirePackage{xltabular}
+\RequirePackage{booktabs}
 
 \NewTblrTheme{xjtu_std}{
     \SetTblrStyle{width}{\linewidth}
@@ -750,6 +780,11 @@
 \setlength{\heavyrulewidth}{1.5pt}
 \setlength{\lightrulewidth}{1.0pt}
 \setlength{\arrayrulewidth}{0.5pt}
+
+\newcolumntype{Y}{>{\centering\arraybackslash}X}
+\newcolumntype{Z}{>{\raggedleft\arraybackslash}X}
+\tabcolsep=1ex
+\tabulinesep=\tabcolsep
 
 % tikz
 \newlength\tikzboxwidth
@@ -766,10 +801,10 @@
   \end{tikzpicture}%
 }
 
-% \def\hlinew#1{%
-%   \noalign{\ifnum0=`}\fi\hrule \@height #1 \futurelet
-%   \reserved@a\@xhline}
-% \newcommand{\tabincell}[2]{\begin{tabular}{@{}#1@{}}#2\end{tabular}}%
+\def\hlinew#1{%
+  \noalign{\ifnum0=`}\fi\hrule \@height #1 \futurelet
+  \reserved@a\@xhline}
+\newcommand{\tabincell}[2]{\begin{tabular}{@{}#1@{}}#2\end{tabular}}%
 
 \AtBeginEnvironment{figure}{
   \def\@floatboxreset{\centering}
@@ -780,6 +815,9 @@
 }
 \AtBeginEnvironment{tblr}{\wuhao}
 \AtBeginEnvironment{longtblr}{\wuhao}
+\AtBeginEnvironment{tabular}{\wuhao}
+\AtBeginEnvironment{tabularx}{\wuhao}
+\AtBeginEnvironment{xltabular}{\wuhao}
 
 
 %%% caption %%%

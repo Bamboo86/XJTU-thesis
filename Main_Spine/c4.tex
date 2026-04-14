@@ -6,9 +6,11 @@
 
 第三章构建了面向长步骤平面几何推理的标准化评测基准 GeoLStep，并对现有几何求解模型和大语言模型进行了系统测试。结果表明，这类模型在较短推理链条上通常能够取得较好的效果，但当题目需要经过更多中间结论、依赖更复杂的条件关系时，模型性能会明显下降。已有研究也指出，几何求解不仅要求模型理解题目文本和图形信息，还要求其能够将二者转化为可用于推理的表示，并在此基础上完成连续的逻辑推演 \cite{lu2021intergps}。因此，长链条平面几何推理的困难，并不只在于答案求解本身，更在于如何保持整个推理过程的正确与稳定。
 
-结合实验结果可以看出，当前方法在长链条平面几何推理中主要存在两个方面的问题。第一，图文信息之间的对齐仍然不够稳定。不同模态的表示差异以及融合方式的影响，都会干扰模型对几何关系的准确理解 \cite{laurenccon2024matters}。并且在多模态长链条推理过程中，模型对视觉信息的利用可能随着推理深入而减弱，从而更容易受到前面中间结果的影响，出现推理偏移 \cite{sun2025mitigating}。第二，随着推理步骤增多，前后步骤之间的依赖关系会更加紧密，一旦某一步出现错误，后续推理就容易沿着错误路径继续展开，最终影响整体结果。相关研究表明，中间推理中的噪声会明显削弱链式推理的效果 \cite{zhou2024can}，而引入解释链等过程信息有助于提升多模态推理表现 \cite{lu2022learntoexplain}。
+结合实验结果可以看出，当前方法在长链条平面几何推理中主要存在两个方面的问题。第一，图文信息之间的\textcolor{red}{对齐仍然不够稳定}。不同模态的表示差异以及融合方式的影响，都会干扰模型对几何关系的准确理解 \cite{laurenccon2024matters}。并且在多模态长链条推理过程中，模型对视觉信息的利用可能随着推理深入而减弱，从而更容易受到前面中间结果的影响，出现推理偏移 \cite{sun2025mitigating}。第二，随着推理步骤增多，前后步骤之间的依赖关系会更加紧密，一旦某一步出现错误，后续推理就容易沿着错误路径继续展开，最终影响整体结果。相关研究表明，中间推理中的噪声会明显削弱链式推理的效果 \cite{zhou2024can}，而引入解释链等过程信息有助于提升多模态推理表现 \cite{lu2022learntoexplain}。
 
-针对上述问题，若仅依赖单阶段训练和结果级监督，往往难以同时提升模型的长链条推理能力，并保证其在多模态输入下的稳定性。基于这一认识，本章提出一种面向长链条平面几何推理的两阶段增强方法。该方法的基本思路是，先在较为简化的条件下强化模型的长链条推理能力，再在图文联合输入的条件下进一步提升其推理过程的稳定性。
+针对上述问题，若仅依赖\textcolor{red}{单阶段训练}
+% 前后不在一个level
+和结果级监督，往往难以同时提升模型的长链条推理能力，并保证其在多模态输入下的稳定性。基于这一认识，本章提出一种面向长链条平面几何推理的两阶段增强方法。\textcolor{red}{该方法的基本思路是，先在较为简化的条件下强化模型的长链条推理能力，再在图文联合输入的条件下进一步提升其推理过程的稳定性。} % 为什么这么做！！！
 
 具体而言，第一阶段将几何题目转化为纯文本形式，尽量去除图像带来的干扰，使模型能够将重点放在条件整理、关系推导和步骤组织上。通过这一阶段训练，模型可以先形成较稳定的长链条推理能力，为后续多模态训练打下基础。第二阶段重新引入图文联合输入，使模型在保留前一阶段推理能力的基础上，进一步适应真实几何任务中的多模态环境。为减轻中间步骤错误累积带来的影响，本章在该阶段引入基于符号规则的步骤级反馈机制，对推理过程中的中间结果进行监督和修正。这样可以在一定程度上减少无效推理和路径偏移，从而提高模型在长链条任务中的整体稳定性。
 
@@ -18,18 +20,18 @@
 % ==========================================================
 \xsection{总体框架}{Overall Framework}
 
-本章提出的两阶段增强方法由三个核心组件构成：文本基座的长链条推理增强阶段、多模态多粒度过程强化阶段，以及在两个阶段发挥作用的弱符号验证器。整体训练逻辑遵循“先文本后多模态、先整体能力塑造后过程细化优化”的原则，旨在通过结构化的解耦训练，提升模型在复杂几何问题中的长链条推理稳定性。
+本章提出的两阶段增强方法由三个核心组件构成：文本基座的长链条推理增强阶段、多模态多粒度过程强化阶段，以及在两个阶段发挥作用的弱符号验证器。整体训练逻辑遵循\textcolor{red}{“先文本后多模态、先整体能力塑造后过程细化优化”}的原则，旨在通过结构化的解耦训练，提升模型在复杂几何问题中的长链条推理稳定性。
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=1.0\textwidth]{figures/c4_framework.pdf}
-    \caption{模型两阶段强化学习框架}
+    \caption{\textcolor{red}{模型两阶段强化学习框架}}
     \label{fig:c4_framework}
 \end{figure}
 
 第一阶段为纯文本环境下的长链条推理增强。该阶段主要考虑到参数规模较小的多模态模型在直接处理图文联合输入时，视觉特征的引入往往会干扰模型对复杂逻辑关系的学习。为此，本阶段利用外部工具链将几何图像转化为结构化的文本谓词，构建了无视觉干扰的纯文本训练环境。在此环境下，模型无需进行跨模态特征对齐，从而能够将优化目标集中于已知条件与几何定理之间的逻辑推演。结合基于规则的步骤级反馈机制，本阶段引导模型严格遵循思维链（CoT）的输出规范，培养其规范的步骤化推理能力。这一策略有效缓解了长推理链条中容易出现的逻辑断裂与格式混乱问题，为后续的多模态强化训练奠定了逻辑基础。
 
-第二阶段为多模态多粒度过程强化。在第一阶段构建了基础的逻辑推理能力之后，本阶段旨在解决多模态场景下的错误累积问题。此时模型重新接收图文联合输入，训练重点由纯文本逻辑生成转向视觉特征参与下的稳定推导。通过对模型生成的每个中间步骤引入基于规则的步骤级反馈，本阶段能够有效抑制跨模态对齐误差造成的推理偏离，从而保障模型在长链条多模态推理过程中的整体稳定性。
+第二阶段为\textcolor{red}{多模态多粒度过程强化}。在第一阶段构建了基础的逻辑推理能力之后，本阶段旨在解决多模态场景下的错误累积问题。此时模型重新接收图文联合输入，训练重点由纯文本逻辑生成转向视觉特征参与下的稳定推导。通过对模型生成的每个中间步骤引入基于规则的步骤级反馈，本阶段能够有效抑制跨模态对齐误差造成的推理偏离，从而保障模型在长链条多模态推理过程中的整体稳定性。
 
 % \xsection{核心组件与基础算法}{Core Components and Foundational Algorithms}
 
@@ -196,32 +198,32 @@
     \tcp{阶段一：纯文本长链条推理增强}
     初始化参考策略 $\pi_{\mathrm{ref}} \leftarrow \pi_{\theta}$\;
     \While{阶段一策略未收敛}{
-        从 $\mathcal{D}_{text}$ 中采样纯文本几何问题 $q$\;
-        使用当前策略 $\pi_{\theta}$ 并行采样 $G$ 条推理轨迹 $\{\tau_i\}_{i=1}^G$\;
-        \For{每条轨迹 $\tau_i$}{
-            调用验证器 $\mathcal{V}$ 进行全局解析与核查，计算轨迹级总奖励: $R_i^{(1)} = \lambda_1 R_{\mathrm{fmt}} + \lambda_2 R_{\mathrm{ans}} + \lambda_3 R_{\mathrm{ver}}$\;
-        }
-        根据组内奖励 $\{R_i^{(1)}\}_{i=1}^G$ 计算相对优势 $A_i$\;
-        引入基于 $\pi_{\mathrm{ref}}$ 的 KL 散度约束，利用 GRPO 算法更新策略参数 $\theta$\;
+    从 $\mathcal{D}_{text}$ 中采样纯文本几何问题 $q$\;
+    使用当前策略 $\pi_{\theta}$ 并行采样 $G$ 条推理轨迹 $\{\tau_i\}_{i=1}^G$\;
+    \For{每条轨迹 $\tau_i$}{
+    调用验证器 $\mathcal{V}$ 进行全局解析与核查，计算轨迹级总奖励: $R_i^{(1)} = \lambda_1 R_{\mathrm{fmt}} + \lambda_2 R_{\mathrm{ans}} + \lambda_3 R_{\mathrm{ver}}$\;
+    }
+    根据组内奖励 $\{R_i^{(1)}\}_{i=1}^G$ 计算相对优势 $A_i$\;
+    引入基于 $\pi_{\mathrm{ref}}$ 的 KL 散度约束，利用 GRPO 算法更新策略参数 $\theta$\;
     }
 
     \tcp{阶段二：多模态多粒度过程强化}
     将阶段一收敛后的模型固定为参考策略 $\pi_{\mathrm{ref}} \leftarrow \pi_{\theta}$\;
     \While{阶段二策略未收敛}{
-        从 $\mathcal{D}_{geo}$ 中采样多模态几何问题 $q_{vis}$\;
-        使用当前策略 $\pi_{\theta}$ 并行采样 $G$ 条推理轨迹 $\{\tau_j\}_{j=1}^G$\;
-        \For{每条轨迹 $\tau_j$}{
-            初始化轨迹总收益 $R_j^{(2)} \leftarrow 0$\;
-            \For{轨迹中的每个中间推理步骤 $t=1$ \KwTo $T_j$}{
-                调用验证器 $\mathcal{V}$ 进行格式校验与步骤检验\;
-                计算当前步骤级奖励: $r_{t,j}^{(2)} = \alpha_1 r_{\mathrm{fmt}} + \alpha_2 r_{\mathrm{ver}} - \alpha_3 r_{\mathrm{red}}$\;
-                $R_j^{(2)} \leftarrow R_j^{(2)} + r_{t,j}^{(2)}$\;
-            }
-            调用验证器 $\mathcal{V}$ 比对最终结论\;
-            叠加最终答案匹配奖励: $R_j^{(2)} \leftarrow R_j^{(2)} + \alpha_4 R_{\mathrm{ans}}$\;
-        }
-        计算组内总收益的相对优势 $A_j = (R_j^{(2)} - \text{mean}(\mathbf{R}^{(2)})) / \text{std}(\mathbf{R}^{(2)})$\;
-        引入基于 $\pi_{\mathrm{ref}}$ 的 KL 散度约束，利用 GRPO 更新参数 $\theta$\;
+    从 $\mathcal{D}_{geo}$ 中采样多模态几何问题 $q_{vis}$\;
+    使用当前策略 $\pi_{\theta}$ 并行采样 $G$ 条推理轨迹 $\{\tau_j\}_{j=1}^G$\;
+    \For{每条轨迹 $\tau_j$}{
+    初始化轨迹总收益 $R_j^{(2)} \leftarrow 0$\;
+    \For{轨迹中的每个中间推理步骤 $t=1$ \KwTo $T_j$}{
+    调用验证器 $\mathcal{V}$ 进行格式校验与步骤检验\;
+    计算当前步骤级奖励: $r_{t,j}^{(2)} = \alpha_1 r_{\mathrm{fmt}} + \alpha_2 r_{\mathrm{ver}} - \alpha_3 r_{\mathrm{red}}$\;
+    $R_j^{(2)} \leftarrow R_j^{(2)} + r_{t,j}^{(2)}$\;
+    }
+    调用验证器 $\mathcal{V}$ 比对最终结论\;
+    叠加最终答案匹配奖励: $R_j^{(2)} \leftarrow R_j^{(2)} + \alpha_4 R_{\mathrm{ans}}$\;
+    }
+    计算组内总收益的相对优势 $A_j = (R_j^{(2)} - \text{mean}(\mathbf{R}^{(2)})) / \text{std}(\mathbf{R}^{(2)})$\;
+    引入基于 $\pi_{\mathrm{ref}}$ 的 KL 散度约束，利用 GRPO 更新参数 $\theta$\;
     }
     $\pi_{final} \leftarrow \pi_{\theta}$\;
     \caption{两阶段长链条推理增强算法}
@@ -247,18 +249,18 @@
     \small
     \caption{实验平台及配置相关信息}
     \label{tab:platform}
-    \renewcommand{\arraystretch}{0.85} 
+    \renewcommand{\arraystretch}{0.85}
 
     \begin{tabularx}{\textwidth}{Y Y}
         \toprule
-        软硬件平台   & 版本/型号            \\
+        软硬件平台   & 版本/型号                         \\
         \midrule
-        操作系统    & Ubuntu 22.04         \\
-        处理器      & Intel Xeon Gold 6248R \\
-        显卡        & NVIDIA A800 (80GB) $\times$ 4 \\
-        CUDA        & 12.1                 \\
-        Python      & 3.10                 \\
-        PyTorch     & 2.1.0                \\
+        操作系统    & Ubuntu 22.04                  \\
+        处理器     & Intel Xeon Gold 6248R         \\
+        显卡      & NVIDIA A800 (80GB) $\times$ 4 \\
+        CUDA    & 12.1                          \\
+        Python  & 3.10                          \\
+        PyTorch & 2.1.0                         \\
         \bottomrule
     \end{tabularx}
 \end{table}
@@ -272,21 +274,21 @@
     \small
     \caption{强化学习实验参数设置}
     \label{tab:hyperparameters}
-    \renewcommand{\arraystretch}{0.85} 
+    \renewcommand{\arraystretch}{0.85}
     \begin{tabularx}{\textwidth}{Y Y Y}
         \toprule
-        实验参数              & 参数值   & 参数说明        \\
+        实验参数                  & 参数值                & 参数说明         \\
         \midrule
-        batch\_size           & 128     & 批处理样本数      \\
-        learning\_rate        & $5 \times 10^{-6}$ & 初始学习率       \\
-        max\_seq\_len         & 2048    & 最大输入序列长度    \\
-        group\_size ($G$)     & 16      & GRPO 组采样数量  \\
-        KL\_penalty ($\beta$) & 0.04    & 策略散度惩罚系数    \\
-        optimizer             & AdamW   & 损失函数优化器     \\
-        $\lambda_1, \alpha_1$ & 1.0     & 格式规范奖励权重      \\
-        $\lambda_2, \alpha_4$ & 2.0     & 答案匹配奖励权重      \\
-        $\lambda_3, \alpha_2$ & 1.5     & 轨迹/步骤可验证奖励权重 \\
-        $\alpha_3$            & 0.5     & 冗余惩罚权重      \\
+        batch\_size           & 128                & 批处理样本数       \\
+        learning\_rate        & $5 \times 10^{-6}$ & 初始学习率        \\
+        max\_seq\_len         & 2048               & 最大输入序列长度     \\
+        group\_size ($G$)     & 16                 & GRPO 组采样数量   \\
+        KL\_penalty ($\beta$) & 0.04               & 策略散度惩罚系数     \\
+        optimizer             & AdamW              & 损失函数优化器      \\
+        $\lambda_1, \alpha_1$ & 1.0                & 格式规范奖励权重     \\
+        $\lambda_2, \alpha_4$ & 2.0                & 答案匹配奖励权重     \\
+        $\lambda_3, \alpha_2$ & 1.5                & 轨迹/步骤可验证奖励权重 \\
+        $\alpha_3$            & 0.5                & 冗余惩罚权重       \\
         \bottomrule
     \end{tabularx}
 \end{table}
@@ -335,17 +337,17 @@ Base-Text-Geo：本章提出的完整两阶段框架。该模型首先在纯文�
     \label{tab:mathverse_results}
     \begin{tabularx}{\textwidth}{l @{\extracolsep{\fill}} Y Y Y Y Y}
         \toprule
-        模型 & TD & TO & VD & VO & Avg \\
+        模型                             & TD            & TO            & VD            & VO            & Avg           \\
         \midrule
-        Qwen3-CoT & 74.2 & 68.1 & 58.6 & 50.1 & 62.8 \\
-        Qwen3-SFT & 76.5 & 70.2 & 60.7 & 52.3 & 64.9 \\
+        Qwen3-CoT                      & 74.2          & 68.1          & 58.6          & 50.1          & 62.8          \\
+        Qwen3-SFT                      & 76.5          & 70.2          & 60.7          & 52.3          & 64.9          \\
         % Qwen3-Text & 79.5 & 73.2 & 62.8 & 53.6 & 67.3 \\
         % Qwen3-Multi & 76.1 & 69.7 & 63.2 & 55.8 & 66.2 \\
-        Qwen3-Multi-Geo & 78.3 & 70.8 & \textbf{66.2} & \textbf{57.9} & 68.3 \\
-        \textbf{Qwen3-Text-Geo (ours)} & \textbf{82.6} & \textbf{76.5} & 65.3 & 56.8 & \textbf{70.3} \\
+        Qwen3-Multi-Geo                & 78.3          & 70.8          & \textbf{66.2} & \textbf{57.9} & 68.3          \\
+        \textbf{Qwen3-Text-Geo (ours)} & \textbf{82.6} & \textbf{76.5} & 65.3          & 56.8          & \textbf{70.3} \\
         \bottomrule
     \end{tabularx}
-    
+
     \vspace{1ex}
     \raggedright
     \footnotesize 注：TD（文本主导）、TO（纯文本）、VD（视觉主导）与 VO（仅视觉）。
@@ -355,33 +357,33 @@ Base-Text-Geo：本章提出的完整两阶段框架。该模型首先在纯文�
 
 此外，表 \ref{tab:mathverse_results} 中还展示了 Qwen3-Multi-Geo 作为未进行阶段一模态解耦的对比模型表现。尽管其在纯视觉感知指标（VD 与 VO）上略有优势，但整体逻辑鲁棒性仍弱于本文所提的 Qwen3-Text-Geo 方法。关于纯文本逻辑解耦策略与多模态同步强化之间的比较，将在后续的消融实验小节中进行具体探讨。
 
- 表 \ref{tab:geolstep_combined}展示了 GeoLStep 数据集的分桶评测结果，
+表 \ref{tab:geolstep_combined}展示了 GeoLStep 数据集的分桶评测结果，
 %  Base-Text-Geo 
- 经过两阶段增强方法训练后的模型在应对超长链条推理时展现出卓越的稳定性。以 Qwen3-VL-8B 为例，在难度最高的 13--26 步推理任务中，Qwen3-Text-Geo 的答案准确率 $\mathrm{Acc}_{\text{ans}}$ 从 SFT 基线的 20.5\% 提升至 27.8\%，过程正确率 $\mathrm{Acc}_{\text{step}}$ 更是实现了从 48.5\% 到 65.5\% 的飞跃。InternVL 基座模型在同等难度的长链条任务下，答案准确率也从 13.5\% 提升至 22.8\%。实验数据充分地证明了，相较于传统模型在长链条推理下易发生的逻辑崩溃现象，在强化学习当中通过引入步骤级过程强化能够有效抑制错误累积。即使在推理链条大幅增长的情况下，模型依然能保持较高的逻辑连贯性与解题成功率。
+经过两阶段增强方法训练后的模型在应对超长链条推理时展现出卓越的稳定性。以 Qwen3-VL-8B 为例，在难度最高的 13--26 步推理任务中，Qwen3-Text-Geo 的答案准确率 $\mathrm{Acc}_{\text{ans}}$ 从 SFT 基线的 20.5\% 提升至 27.8\%，过程正确率 $\mathrm{Acc}_{\text{step}}$ 更是实现了从 48.5\% 到 65.5\% 的飞跃。InternVL 基座模型在同等难度的长链条任务下，答案准确率也从 13.5\% 提升至 22.8\%。实验数据充分地证明了，相较于传统模型在长链条推理下易发生的逻辑崩溃现象，在强化学习当中通过引入步骤级过程强化能够有效抑制错误累积。即使在推理链条大幅增长的情况下，模型依然能保持较高的逻辑连贯性与解题成功率。
 
-\begin{table}[H] 
+\begin{table}[H]
     \centering
     \small
     \caption{不同基座模型在 GeoLStep 数据集的分桶评测性能对比 (\%)}
     \label{tab:geolstep_combined}
     \begin{tabularx}{\textwidth}{l Y Y Y Y Y Y Y Y}
         \toprule
-        \multirow{2}{*}{模型} & \multicolumn{2}{c}{1 -- 4 Steps} & \multicolumn{2}{c}{5 -- 12 Steps} & \multicolumn{2}{c}{13 -- 26 Steps} & \multicolumn{2}{c}{All Steps} \\
+        \multirow{2}{*}{模型}               & \multicolumn{2}{c}{1 -- 4 Steps} & \multicolumn{2}{c}{5 -- 12 Steps} & \multicolumn{2}{c}{13 -- 26 Steps} & \multicolumn{2}{c}{All Steps}                                                                                                                           \\
         \cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7} \cmidrule(lr){8-9}
-        & $\mathrm{Acc}_{\text{ans}}$ & $\mathrm{Acc}_{\text{step}}$ & $\mathrm{Acc}_{\text{ans}}$ & $\mathrm{Acc}_{\text{step}}$ & $\mathrm{Acc}_{\text{ans}}$ & $\mathrm{Acc}_{\text{step}}$ & $\mathrm{Acc}_{\text{ans}}$ & $\mathrm{Acc}_{\text{step}}$ \\
+                                          & $\mathrm{Acc}_{\text{ans}}$      & $\mathrm{Acc}_{\text{step}}$      & $\mathrm{Acc}_{\text{ans}}$        & $\mathrm{Acc}_{\text{step}}$  & $\mathrm{Acc}_{\text{ans}}$ & $\mathrm{Acc}_{\text{step}}$ & $\mathrm{Acc}_{\text{ans}}$ & $\mathrm{Acc}_{\text{step}}$ \\
         \midrule
         % \multicolumn{9}{l}{\textit{基座模型 Qwen3-VL-8B}} \\
-        Qwen3-CoT & 77.5 & 89.5 & 55.2 & 76.6 & 16.5 & 42.9 & 55.9 & 75.6 \\
-        Qwen3-SFT & 78.2 & 90.1 & 56.8 & 78.6 & 20.5 & 48.5 & 57.6 & 77.7 \\
+        Qwen3-CoT                         & 77.5                             & 89.5                              & 55.2                               & 76.6                          & 16.5                        & 42.9                         & 55.9                        & 75.6                         \\
+        Qwen3-SFT                         & 78.2                             & 90.1                              & 56.8                               & 78.6                          & 20.5                        & 48.5                         & 57.6                        & 77.7                         \\
         % Qwen3-Multi-Geo & 79.1 & 91.2 & 58.9 & 80.5 & 24.2 & 54.2 & 59.6 & 79.9 \\
-        \textbf{Qwen3-Text-Geo (ours)} & \textbf{79.8} & \textbf{92.5} & \textbf{60.5} & \textbf{82.4} & \textbf{27.8} & \textbf{65.5} & \textbf{61.2} & \textbf{82.8} \\
-        
+        \textbf{Qwen3-Text-Geo (ours)}    & \textbf{79.8}                    & \textbf{92.5}                     & \textbf{60.5}                      & \textbf{82.4}                 & \textbf{27.8}               & \textbf{65.5}                & \textbf{61.2}               & \textbf{82.8}                \\
+
         \midrule
         % \multicolumn{9}{l}{\textit{基座模型 InternVL-3-8B}} \\
-        InternVL-CoT & 72.8 & 63.7 & 46.3 & 48.3 & 10.4 & 43.2 & 51.4 & 49.8 \\
-        InternVL-SFT & 73.5 & 65.2 & 48.1 & 50.4 & 13.5 & 46.5 & 53.0 & 52.0 \\
+        InternVL-CoT                      & 72.8                             & 63.7                              & 46.3                               & 48.3                          & 10.4                        & 43.2                         & 51.4                        & 49.8                         \\
+        InternVL-SFT                      & 73.5                             & 65.2                              & 48.1                               & 50.4                          & 13.5                        & 46.5                         & 53.0                        & 52.0                         \\
         % InternVL-Multi-Geo & 74.8 & 68.5 & 51.2 & 55.8 & 16.2 & 51.2 & 55.6 & 56.8 \\
-        \textbf{InternVL-Text-Geo (ours)} & \textbf{76.0} & \textbf{72.5} & \textbf{54.5} & \textbf{62.4} & \textbf{22.8} & \textbf{61.5} & \textbf{58.8} & \textbf{63.1} \\
+        \textbf{InternVL-Text-Geo (ours)} & \textbf{76.0}                    & \textbf{72.5}                     & \textbf{54.5}                      & \textbf{62.4}                 & \textbf{22.8}               & \textbf{61.5}                & \textbf{58.8}               & \textbf{63.1}                \\
         \bottomrule
     \end{tabularx}
 \end{table}
@@ -401,16 +403,16 @@ Base-Text-Geo：本章提出的完整两阶段框架。该模型首先在纯文�
     \label{tab:ablation_modality}
     \begin{tabularx}{\textwidth}{l @{\extracolsep{\fill}} Y Y Y Y Y}
         \toprule
-        模型 & TD & TO & VD & VO & Avg \\
+        模型                             & TD            & TO            & VD            & VO            & Avg                      \\
         \midrule
-        Qwen3-Multi-Geo & 78.3 & 70.8 & \textbf{66.2} & \textbf{57.9} & $68.3_{~\downarrow 2.0}$ \\
-        \quad w/o Geo & 76.1 & 69.7 & 63.2 & 55.8 & $66.2_{~\downarrow 4.1}$ \\
+        Qwen3-Multi-Geo                & 78.3          & 70.8          & \textbf{66.2} & \textbf{57.9} & $68.3_{~\downarrow 2.0}$ \\
+        \quad w/o Geo                  & 76.1          & 69.7          & 63.2          & 55.8          & $66.2_{~\downarrow 4.1}$ \\
         \midrule
-        \textbf{Qwen3-Text-Geo (ours)} & \textbf{82.6} & \textbf{76.5} & 65.3 & 56.8 & \textbf{70.3} \\
-        \quad w/o Geo & 79.8 & 73.5 & 62.9 & 53.8 & $67.5_{~\downarrow 2.8}$ \\
+        \textbf{Qwen3-Text-Geo (ours)} & \textbf{82.6} & \textbf{76.5} & 65.3          & 56.8          & \textbf{70.3}            \\
+        \quad w/o Geo                  & 79.8          & 73.5          & 62.9          & 53.8          & $67.5_{~\downarrow 2.8}$ \\
         \bottomrule
     \end{tabularx}
-    
+
     \vspace{1ex}
     \raggedright
     \footnotesize 注：TD（文本主导）、TO（纯文本）、VD（视觉主导）与 VO（仅视觉）。
@@ -455,7 +457,7 @@ Base-Text-Geo：本章提出的完整两阶段框架。该模型首先在纯文�
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.7\textwidth]{figures/c4_casestudy.png} 
+    \includegraphics[width=0.7\textwidth]{figures/c4_casestudy.png}
     \caption{推理过程对比（成功案例）}
     \label{fig:c4_casestudy}
 \end{figure}
@@ -464,7 +466,7 @@ Base-Text-Geo：本章提出的完整两阶段框架。该模型首先在纯文�
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.7\textwidth]{figures/c4_error_case.png} 
+    \includegraphics[width=0.7\textwidth]{figures/c4_error_case.png}
     \caption{求解失败案例}
     \label{fig:c4_error_case}
 \end{figure}

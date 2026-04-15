@@ -47,7 +47,7 @@
 
 在上述整理结果基础上，进一步完成求解过程、辅助线、难度信息标注和形式化转换。具体而言，基于修正后的参考解答，使用 MLLM 给出该题的推理步骤数以及是否需要作辅助线等标注信息，其中过程粒度遵循对“逻辑推理步骤”的定义；同时，在难度分级阶段，采用“易/中/难”三级标注，并依据是否需要辅助线帮助求解与推理长度进行划分，以反映解题的结构复杂度与推理深度。最后，对题目文本、几何图像与解答过程进行形式化解析，为后续图文形式化转换链路提供统一输入，再辅以人工复核进行校验，以保证最终结构化数据的质量与一致性。
 
-\xsubsection{图文形式化转换}{Image-Text Formalization Conversion}
+\xsubsection{图文形式化转换链路}{Image-Text Formalization Pipeline}
 
 为使几何题目能够被符号求解系统直接处理，并为过程核验、自动形式化证明等任务提供可验证的中间表示，有必要将自然语言描述转化为严格的形式化语言。近年来，相关研究普遍重视几何问题的形式化表达。例如，AlphaGeometry \cite{trinh2024alphageometry} 强调将自然语言条件转化为严密的逻辑构造，UniGeo \cite{chen2022unigeo} 也从统一多模态约束表示的角度对几何问题进行建模。这些工作表明，形式化语言不仅是连接自然语言与符号推理的关键桥梁，也是实现几何问题标准化表示的重要基础。
 
@@ -88,9 +88,9 @@
 
 基于该谓词体系，形式化语言能够有效减少自然语言描述中的省略、歧义与表达变体问题，并将题目条件组织为结构化、可计算的约束集合，作为符号推理与过程核验的统一接口。在具体语法实现上，本章严格沿用 Inter-GPS 的符号化定义规范，以保证与主流几何求解器的兼容性，后续也可基于该体系进行不同形式化逻辑之间的转换。进一步地，本章构建了文本与图像两侧协同的自动形式化转换链路，分别面向题面语义的谓词生成与题图结构的形式化解析展开。
 
-\subsubsection{题目文本的形式化转换}
+\subsubsection{题目文本形式化转换策略}
 
-题目文本到形式化语言的映射本质上是一个高度结构化的语义解析任务。该任务要求模型严格遵循目标形式化语言的语法规范，对齐潜在的几何逻辑关系。为此，本研究以开源的 Qwen3-8B \cite{yang2025qwen3} 为基座，采用指令监督微调~\cite{long2022instructgpt}（Supervised Fine-Tuning）范式来训练专属的文本转换模型。为了验证该技术路线的有效性，下文将依次对该任务的三个关键环节展开详细论述：首先介绍微调与测试数据集的构建与扩充策略；其次阐明模型微调的具体实验设置；最后，通过对比实验，全面评估基于提示工程的通用大模型与本章微调模型在实际转换精度上的性能差异。
+题目文本到形式化语言的映射本质上是一个高度结构化的语义解析任务。该任务要求模型严格遵循目标形式化语言的语法规范，对齐潜在的几何逻辑关系。为此，本研究以开源的 Qwen3-8B \cite{yang2025qwen3} 为基座，采用指令监督微调~\cite{long2022instructgpt}（Supervised Fine-Tuning）范式来训练专属的文本转换模型。相较于仅依赖通用提示词的大模型，面向任务的微调策略能够更稳定地学习几何对象、关系类型与目标谓词之间的映射规律，从而为后续批量形式化构建提供更可控的工具链支撑。
 
 \paragraph{微调与测试数据集的构建}
 高质量的指令数据是保证语言模型生成规范形式化语言的前提。本章的微调和测试数据集构建主要分为训练集扩充与独立测试集标注两个阶段。
@@ -106,73 +106,10 @@
 
 测试集构建阶段从前文已构造的长链条数据集中独立采样，收集了约 1000 条几何题干作为测试数据，形成约 5500 条形式化语言样本。为保证评估标签的质量，测试集中的所有形式化语言均采用人工标注，并由具备相关学科背景的研究人员进行多轮交叉校验。此外，该测试集与微调所用的训练数据严格正交，排除了数据泄露的潜在风险。这批校验后的样本作为后续对比实验的基准数据（Ground Truth），为精确匹配率等核心量化指标的计算提供了事实依据。
 
-\paragraph{实验设置与微调流程}
-为了全面评估本工作微调方法在文本到形式化语言转换上的有效性，本章设置了两类对比基线：第一类是基于少样本提示（Few-shot Prompt）的通用大模型，这类模型不进行权重更新，仅依赖上下文学习能力来捕捉形式化语言的映射规律；第二类是同等参数规模（约 8B--9B）且经过相同特定任务微调的开源模型，用于验证不同基座模型在吸收垂直领域知识后的真实表现。
+\paragraph{微调流程}
+微调流程采用监督微调范式。模型以自然语言题干作为输入，以目标形式化语言代码作为输出，通过最小化交叉熵损失（Cross-Entropy Loss）来优化模型权重，使其掌握跨语言几何关系转换与严格形式化语法生成能力。为兼顾显存效率与训练效果，实验引入 LoRA~\cite{hu2022lora}（Low-Rank Adaptation）参数高效微调技术，仅对低秩适配参数进行训练，而保持基座模型主体参数冻结。该策略能够在较低计算开销下完成领域适配，使模型学习几何题干到谓词表达之间的稳定映射关系。训练过程在单张 NVIDIA A800 (80GB) GPU 上完成。
 
-微调流程采用监督微调范式。模型以自然语言题干作为输入，以目标形式化语言代码作为输出，通过最小化交叉熵损失（Cross-Entropy Loss）来优化模型权重，使其掌握跨语言的几何关系转换与严格的语法规则。为兼顾显存效率与训练效果，实验在单张 NVIDIA A800 (80GB) GPU 上完成，并引入了 LoRA~\cite{hu2022lora}(Low-Rank Adaptation) 参数高效微调技术。
-
-\paragraph{文本转换实验结果}
-为客观评估模型将自然语言转换为形式化语言的质量，实验使用语法合法率（Syntax Valid Rate, SVR）、约束召回率（Constraint Recall, CR）与精确匹配率（Exact Match, EM）三项核心指标。其具体定义如下：
-
-语法合法率 (SVR)：衡量模型生成的形式化语言表达式是否符合目标的语法规范，能够被文本解析器\cite{lu2021intergps}成功编译而无语法错误。
-\begin{equation}
-    \mathrm{SVR} = \frac{N_{\mathrm{valid}}}{N_{\mathrm{total}}} \times 100\%,
-\end{equation}
-其中，$N_{\mathrm{total}}$ 为测试集样本总数，$N_{\mathrm{valid}}$ 为语法合法的样本数。
-
-约束召回率 (CR)：评估模型对原始题目中关键几何条件与求解目标的覆盖程度。具体而言，本文将每条形式化语句视为一个独立约束项，并在谓词类型及其参数对象均匹配时认为该约束被成功召回。CR 统计所有样本中被正确生成的真实约束项占真实约束项总数的比例，因此能够反映模型是否遗漏题目中的重要条件，但不要求整道题目的形式化结果与标注完全一致。
-\begin{equation}
-    \mathrm{CR} = \frac{\sum_{i=1}^{N_{\mathrm{total}}} |C_{\mathrm{pred}}^{(i)} \cap C_{\mathrm{gt}}^{(i)}|}{\sum_{i=1}^{N_{\mathrm{total}}} |C_{\mathrm{gt}}^{(i)}|} \times 100\%,
-\end{equation}
-其中，$C_{\mathrm{pred}}^{(i)}$ 和 $C_{\mathrm{gt}}^{(i)}$ 分别表示第 $i$ 个样本中模型预测的约束集合与人工标注的真实约束集合。
-
-精确匹配率 (EM)：要求模型生成的完整形式化结果与真实标签完全一致，或在抽象语法树上逻辑等价，即只有当一个样本中的所有约束项均被正确生成且不存在额外错误约束时，才记为匹配成功，是衡量下游符号求解可靠性的最严格标准。
-\begin{equation}
-    \mathrm{EM} = \frac{N_{\mathrm{match}}}{N_{\mathrm{total}}} \times 100\%,
-\end{equation}
-其中，$N_{\mathrm{match}}$ 为实现精确匹配的样本数量。
-
-各模型在测试集上的具体评估结果如表 \ref{tab:text_results} 所示。从整体对比结果可以看出，基于提示词的开源小模型（Llama-3.1-8B、GLM-4-9B、Qwen3-8B）在三项指标上整体偏低，其精确匹配率仅分布在 60.5\% 至 64.2\% 之间，尚不足以稳定支撑下游的符号求解或语义理解。相比之下，在少量样本提示的辅助下，闭源模型 GPT-4o mini、GPT-4o 以及大参数开源模型 DeepSeek-V3 均表现出更强的结构化生成能力，说明大规模模型在上下文模式归纳以及语法约束遵循方面具有明显优势。
-
-\begin{table}[htbp]
-    \centering
-    \caption{不同模型在文本到形式化语言转换任务上的性能对比（\%）}
-    \label{tab:text_results}
-    \small
-    \renewcommand{\arraystretch}{0.85}
-    \setlength{\tabcolsep}{6pt}
-    \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lccc}
-        \toprule
-        模型 & 语法合法率 & 约束召回率 & 精确匹配率 \\
-        \midrule
-
-        \multicolumn{4}{@{}l}{\small\textit{Few-shot Prompt-based}} \\
-        Llama-3.1-8B\cite{grattafiori2024llama}                & 80.1 & 73.2 & 60.5 \\
-        GLM-4-9B\cite{glm2024chatglm}                          & 81.3 & 74.7 & 62.4 \\
-        Qwen3-8B\cite{yang2025qwen3}                           & 82.6 & 75.6 & 64.2 \\
-        GPT-4o mini\cite{hurst2024gpt4o}                       & 92.1 & 89.7 & 84.5 \\
-        DeepSeek-V3\cite{liu2024deepseek}                      & 92.4 & \underline{90.5} & 85.9 \\
-        \textbf{GPT-4o\cite{hurst2024gpt4o}}                   & \textbf{94.5} & \textbf{92.8} & \textbf{90.2} \\
-
-        \cmidrule{1-4}
-
-        \multicolumn{4}{@{}l}{\small\textit{Fine-tuning-based (\textasciitilde 8B--9B)}} \\
-        Llama-3.1-8B$^*$\cite{grattafiori2024llama}            & 89.2 & 86.1 & 82.3 \\
-        GLM-4-9B$^*$\cite{glm2024chatglm}$^*$                      & 91.5 & 87.8 & 83.6 \\
-        \textbf{Qwen3-8B$^*$\cite{yang2025qwen3} (Ours)$^*$}       & \underline{92.8} & 90.2 & \underline{86.1} \\
-
-        \bottomrule
-    \end{tabular*}
-
-    \vspace{1ex}
-    \raggedright
-    \footnotesize 注：$^*$表示经过本文特定数据集微调后的模型。
-    \normalsize
-\end{table}
-
-进一步观察微调组可知，经过特定数据与 LoRA 微调后，开源小模型在文本到形式化语言转换任务上的性能均显著提升。其中，Qwen3-8B 的语法合法率、约束召回率与精确匹配率较未微调前分别提升了 10.2\%、14.6\% 与 21.9\%，并在语法合法率（92.8\%）与精确匹配率（86.1\%）上超过 GPT-4o mini 和 DeepSeek-V3，约束召回率（90.2\%）也与 DeepSeek-V3 的 90.5\% 基本接近。虽然其整体性能仍低于最优的 GPT-4o，但闭源模型受限于可控性与本地部署条件，DeepSeek-V3 等大参数模型部署时约需 680GB 文件空间；相比之下，微调后的 Qwen3-8B 仅需约 20GB 容量，更便于本地部署和系统集成，也更适合面向几何形式化转换这一专门任务进行优化。
-
-\subsubsection{几何图像的形式化解析}
+\subsubsection{几何图像形式化解析流程}
 
 在几何问题中，题目图像不仅起到辅助说明作用，还包含了大量题干文本中未显式给出的几何约束，例如点的共线关系、圆与直线的相交关系，以及由直角标记、平行标记等局部符号所表达的约束条件。因此，除了将题目文本转换为形式化表达之外，还需要进一步对几何图像进行形式化解析，从而获得完整的多模态结构化表示。
 
@@ -209,44 +146,14 @@
 
 在获得自动解析结果后，实验中进一步对其进行人工校验与修正。校验内容主要包括点名称、线段名称、圆名称等几何对象识别结果，以及由这些对象和关系生成的图像侧形式化语言。通过该过程修正 OCR 误识别、几何对象漏检或关系解析错误等问题，最终为整个数据集补充较为可靠的几何图像形式化标注。
 
-为了量化评估 OCR 质量对下游图像形式化解析的影响，本实验在统一的 PGDPNet 解析框架下，对比了不同 OCR 输入来源下的解析性能。具体而言，对比基准包含四类：人工标注、微调后的 PaddleOCR(PaddleOCR-FT)、原生 PaddleOCR 以及通用识别大模型 DeepSeekOCR~\cite{wei2025deepseekocr}。
-% 此处“人工标注”仅指人工提供图像中的文本检测框与识别文本内容，并将其作为上游 OCR 输入接入 PGDPNet 进行后续解析，而非人工直接构造图像的形式化语言结果。
-以经人工严格校验后的图元（点、线、圆）及形式化语言结果为真实基准，统计各方法的正确率；同时，计算各方法预测结果中误检与冗余实例占其输出实例总数的比例，以此评估多余率。 对比结果如图~\ref{fig:ocr_performance} 所示。
-\begin{figure}[H]
-    \centering
-    % 第一张图：正确率对比
-    \begin{subfigure}[b]{0.49\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{figures/ocr_accuracy.pdf}
-        \caption{各方法识别正确率对比}
-        \label{subfig:ocr_accuracy}
-    \end{subfigure}
-    \hfill % 在两张图之间插入弹性空白
-    % 第二张图：多余率对比
-    \begin{subfigure}[b]{0.49\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{figures/ocr_excess_rate.pdf}
-        \caption{各方法识别多余率对比}
-        \label{subfig:ocr_excess_rate}
-    \end{subfigure}
-
-    % 大图的题注和标签
-    \caption{不同OCR模型在各几何图元及形式化语言上的识别性能对比}
-    \label{fig:ocr_performance}
-\end{figure}
-
-可以观察到，通用 OCR 模型在几何图表场景下存在明显瓶颈：原生 PaddleOCR 与 DeepSeekOCR 在形式化语言层面的正确率仅为 32\% 和 11\%，且多余率分别达到 44\% 和 45\%。这表明，通用 OCR 容易受到几何题图中微小目标、紧邻图元及复杂符号的干扰，从而影响后续 PGDPNet 的关系解析。相比之下，经过几何场景数据微调的 PaddleOCR-FT 性能显著提升，其在点和形式化语言上的正确率分别达到 83\% 和 76\%，并将形式化语言的多余率降至 23\%。尽管受限于几何图像本身较高的解析难度，自动方法在复杂图元上的表现仍与人工提供 OCR 输入时存在一定差距，但该对比实验说明了领域垂直训练的有效性。微调后的模型能够更好适应几何图像的分布特征，在保证基本解析精度的同时，显著降低后续构建同类大规模数据集时对人工 OCR 标注与校验的依赖。
-
-% 综上所述，本节构建了几何题目自动形式化转换流程。在文本侧通过指令数据扩充与 LoRA 微调，使模型能够较准确地将题目描述转换为结构化谓词表达；在图像侧，本文结合几何 OCR 微调与 PGDPNet，对题图中的几何对象、符号和空间关系进行解析。该流程减少了人工标注和规则编写的成本，也为后续符号求解、过程核验与多模态推理提供了统一的结构化输入。
-
-% \xsubsection{数据增强策略}{Data Augmentation Strategy}
-
 % -------------------------------------------------------------------
-\xsection{数据质量与统计分析}{Data Quality and Statistical Analysis}
+\xsection{数据统计与质量分析}{Data Statistics and Quality Analysis}
 
-\xsubsection{数据统计特征}{Statistical Characteristics of the Dataset}
+\xsubsection{数据统计特征}{Statistical Characteristics}
 
-经过严格筛选与清洗后，本章最终构建了一个包含 2097 道几何题目的数据集，其中计算题 1274 道，证明题 823 道。数据集中的每个样本均由题目文本和对应几何图像共同构成，属于典型的图像--文本多模态数据。图~\ref{fig:data_anna_example} 展示了一个几何题目样本及其结构化标注示例。标注信息主要涵盖三个部分：首先是题目元数据，包括题目类型、数值结果、难度等级、辅助线类型、候选选项及单位信息等；其次是语义逻辑形式，包括图形逻辑表达与文本逻辑表达；最后是求解过程参考信息，包括参考求解过程、步骤数以及分步解释等。
+经过严格筛选与清洗后，本章最终构建了一个长链条几何题目为主的数据基准，
+% ，其中计算题 1274 道，证明题 823 道。
+数据集中每条样本均由题目文本和对应几何图像共同构成，属于典型的图像--文本多模态数据。图~\ref{fig:data_anna_example} 展示了一个几何题目样本及其结构化标注示例。标注信息主要涵盖三个部分：首先是题目元数据，包括题目类型、数值结果、难度等级、辅助线类型、候选选项及单位信息等；其次是语义逻辑形式，包括图形逻辑表达与文本逻辑表达；最后是求解过程参考信息，包括参考求解过程、步骤数以及分步解释等。
 
 \begin{figure}[H]
     \centering
@@ -255,8 +162,40 @@
     \label{fig:data_anna_example}
 \end{figure}
 
-数据集的整体分布情况如图\ref{fig:dataset_steps_count}所示。为便于统计推理链长度，本章以参考解中的逻辑推理步骤数作为量化依据。其中，求解过程包含 $1\sim4$ 个推理步骤的题目共 509 题，占比约 24.3\%；包含 5 个及以上步骤的长链条题目共 1588 题，占比约 75.7\%。长链条问题是本基准的核心部分，用于重点评估模型的持续推理能力。求解步数分布如图\ref{fig:dataset_steps_count}所示，其中最长的步数为26步，最短步数1步，主要集中在$3\sim10$步的区间，能够较好地反映中考级别几何题目的推理深度。此外，从参考解答的步骤统计来看，所有题目样本的平均推理步数约为7.44步，能够较好地覆盖长链推理所需的过程推断与定理使用情形。
-% 1-4 509 5-12 1333 13-26 255
+题目类型、辅助线需求和难度等级三个维度的分布情况如图~\ref{fig:c3_dataset_distribution} 所示，图中能直观呈现 GeoLStep 的任务构成与样本复杂性。可以看到，数据集同时包含计算题与证明题，并覆盖一定比例在参考解法中需要构造辅助线的样本；在难度方面，简单题、中等题和难题均有分布。整体来看，GeoLStep 的样本结构较为丰富，可用于考察模型在几何理解、构造推理和复杂问题求解等方面的能力。
+
+\begin{figure}[htbp]
+    \centering
+
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/c3_problem_type_distribution.pdf}
+        \caption{题目类型分布}
+        \label{subfig:c3_problem_type_distribution}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/c3_auxiliary_line_distribution.pdf}
+        \caption{辅助线需求分布}
+        \label{subfig:c3_auxiliary_line_distribution}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/c3_difficulty_distribution.pdf}
+        \caption{难度等级分布}
+        \label{subfig:c3_difficulty_distribution}
+    \end{subfigure}
+
+    \caption{GeoLStep 数据集样本类型分布}
+    \label{fig:c3_dataset_distribution}
+\end{figure}
+
+本章采用参考解中的逻辑推理步骤数来统计推理链长度。求解步数分布如图~\ref{fig:dataset_steps_count} 所示，整体主要集中在 $3\sim10$ 步区间，平均推理步数约为 7.44 步。数据集中，求解过程包含 $1\sim4$ 个推理步骤的题目共 509 道，占比约 24.3\%；包含 5 步及以上推理步骤的题目共 1588 道，占比约 75.7\%，构成本基准重点关注的长链推理样本。其中，$5\sim12$ 步题目占比最高，为 63.6\%；$13\sim26$ 步的高复杂度长链样本占比约 12.1\%。该分布表明，GeoLStep 在保留基础短链题目的同时，以中长链题目为主体，并覆盖一定数量的复杂连续推理样本，可用于考察模型在不同推理深度下的几何推断与定理使用能力。
+
+保留一定比例的短步骤题目主要基于以下两方面考量。首先，保持难度分布的完整性与数据的真实性。在真实的几何问题分布中，简单题也是重要组成部分。其次，作为基础能力的对照组。如果模型在短步骤题目上表现不佳，说明其基础几何概念理解存在缺陷；若基础题表现良好但在长链条题上显著下降，则能更精准地定位其多步推理能力的瓶颈。最后，这也支持了渐进式推理的研究，有助于探索模型从浅层推理向深层推理迁移的行为模式。
+
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.9\textwidth]{figures/dataset_steps_count.png}
@@ -264,37 +203,50 @@
     \label{fig:dataset_steps_count}
 \end{figure}
 
-保留一定比例的短步骤题目主要基于以下两方面考量。
-首先，保持难度分布的完整性与数据的真实性。在真实的几何问题分布中，简单题也是重要组成部分。其次，作为基础能力的“对照组”。如果模型在短步骤题目上表现不佳，说明其基础几何概念理解存在缺陷；若基础题表现良好但在长链条题上显著下降，则能更精准地定位其多步推理能力的瓶颈。最后，这也支持了渐进式推理的研究，有助于探索模型从浅层推理向深层推理迁移的行为模式。
+基于前述数据集统计，下文介绍图文形式化表示的构建结果。考虑到当前符号系统尚不能有效支持证明题求解过程的完整形式化与自动验证，所以本章将最终答案为数值的计算题作为文本形式化转换的主要对象。基于前文所述的微调方法与 Qwen3-8B~\cite{yang2025qwen3}，并结合人工标注和校验，本章构建了计算题文本侧的形式化表示。为保证表达结果的规范性与可执行性，所有文本形式化语言均通过 Inter-GPS~\cite{lu2021intergps}、GeoDRL~\cite{peng2023geodrl} 等几何求解方法的文本解析器测试，确保其能够被正确解析。
 
-在上述数据集统计的基础上，本章进一步对形式化表示的构建结果进行分析。需要说明的是，考虑到当前符号系统尚不能有效支持证明题求解过程的形式化表示与自动验证，本章侧重于将最终答案为数值的计算题作为文本形式化转换的主要对象。基于前文所述的微调方法以及微调模型 Qwen3-8B\cite{yang2025qwen3}，并结合人工标注与校验，最终共整理得到 1274 道计算题的文本形式化表示。为保证生成结果的规范性与可执行性，所有构建的文本形式化语言均已通过 Inter-GPS~\cite{lu2021intergps}、GeoDRL~\cite{peng2023geodrl}等几何求解方法的文本解析器（Text Parser）测试，确保其能够被正确解析。统计结果显示，数据集累计生成 7389 条文本表达式，平均每题约对应 5.80 条形式化表达式。
+表~\ref{tab:formalization_statistics} 汇总了图文两侧形式化标注的整体统计结果。文本侧主要覆盖题目中的已知条件、求解目标及相关数量约束；图像侧则主要用于补充几何图形中的结构信息。由于中考几何题的核心数量条件通常已在题目文本中明确给出，图像侧提取结果更多集中于点、线、圆以及垂直、平行等基础拓扑关系。经统计，数据集中图像总共解析得到点 10988 个、线 20194 条、圆 747 个。
+
+\begin{table}[htbp]
+    \centering
+    \caption{GeoLStep 图文形式化标注统计}
+    \label{tab:formalization_statistics}
+    \small
+    \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lcc}
+        \toprule
+        统计项 & 文本侧形式化 & 图像侧形式化 \\
+        \midrule
+        样本数量 & 1274 道计算题 & 1673 张图像 \\
+        形式化语句总数 & 7389 条 & 11006 条 \\
+        平均每题/每图语句数 & 5.80 条 & 6.58 条 \\
+        主要信息类型 & 主要条件、求解目标 & 点线圆拓扑、垂直平行关系 \\
+        \bottomrule
+    \end{tabular*}
+\end{table}
+
+针对文本侧形式化语言，其表达式分布与谓词类型统计结果如图~\ref{fig:text_logic_analysis} 所示。可以看到，单题形式化表达式条数主要集中在中等规模区间，如 $3\sim8$ 条，表明多数计算题在形式化表示层面具有相对稳定的条件规模，通常能够通过有限数量的表达式刻画题目中的已知条件与求解目标。从高频谓词分布来看，长度关系和求解目标相关谓词占比较高，同时垂直、角度和线段相等等关系也较为常见。这一现象表明，GeoLStep 中的计算题主要围绕线段长度、角度关系和基本位置关系展开，文本侧形式化表示能够较好覆盖初中几何计算题中常见的数量关系与结构约束。
 
 \begin{figure}[htbp]
     \centering
-    % 第一张图：表达式条数分布
     \begin{subfigure}[b]{0.49\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{figures/figure_a_expression_counts.png}
+        \includegraphics[width=\textwidth]{figures/figure_a_expression_counts.pdf}
         \caption{形式化表达式条数分布}
         \label{subfig:expr_count_dist}
     \end{subfigure}
-    \hfill % 在两张图之间插入弹性空白
-    % 第二张图：谓词分布（极简参数版）
+    \hfill
     \begin{subfigure}[b]{0.49\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{figures/figure_b_predicate_frequencies.png}
+        \includegraphics[width=\textwidth]{figures/figure_b_predicate_frequencies.pdf}
         \caption{最高频谓词分布}
         \label{subfig:predicate_dist}
     \end{subfigure}
 
-    % 大图的题注和标签
-    \caption{几何计算题文本形式化语言统计分析}
+    \caption{几何计算题文本形式化语言统计}
     \label{fig:text_logic_analysis}
 \end{figure}
 
-图 \ref{subfig:expr_count_dist} 与图 \ref{subfig:predicate_dist} 分别展示了单题文本形式化表达式条数及高频谓词的分布情况。由统计可知，单题对应的表达式条数主要集中在 4 至 8 条之间（以 5 条和 6 条最为普遍），表明完整描述几何题通常需要多条关联条件的配合。在谓词类型方面，涉及长度关系的谓词占据主导地位，其中描述线段具体长度的 \texttt{Equals(LengthOf(Line), Number)} 出现频率最高（1028 次），用于表示求解目标的 \texttt{Find(LengthOf(Line))} 次之；此外，描述垂直、角度及线段相等关系的谓词也具有较高频次。这些分布特征客观反映了初中几何计算题的核心考点与求解侧重点，为后续模型训练提供了重要的数据参考。
-
-在图像侧的几何信息的形式化构建方面，由于考卷中几何题目的核心数量条件通常会在题目文本中完整给出，图像主要起到辅助理解与提供拓扑结构的作用，因此图像侧提取的形式化语言相对简单和基础。统计结果显示，数据集共包含 1673 张图像，解析提取点数目 10988 个、线数目 20194 条、圆数目 747 个，累计生成图像侧形式化语言 11006 条，平均每张图像对应 6.58 条。图像侧的形式化语言主要包含点共线、点共圆等拓扑关联以及垂直、平行等基础位置关系，其主要谓词类型及数量分布如表 \ref{tab:image_predicates} 所示。
+表~\ref{tab:image_predicates} 给出了图像侧主要谓词类型及其数量分布统计。可以看到，点线关系和点圆关系占据主要部分，说明图像解析结果主要用于恢复几何图形的基本拓扑结构；相比之下，垂直、平行和角度数值等关系通常已在题面文本中明确描述，图像侧仅对其中可由图形标记识别的部分进行补充提取，因此其数量相对较少。整体而言，图像信息主要承担结构约束补充与拓扑关系呈现功能，核心数量条件仍主要来自题目文本，这与中考试题图文协同的命题特点一致。
 
 \begin{table}[htbp]
     \centering
@@ -314,25 +266,120 @@
     \end{tabular*}
 \end{table}
 
+\xsubsection{形式化转换性能分析}{Performance Analysis of Formalization Conversion}
+
+为验证前述图文形式化转换链路的有效性，本节分别从文本到形式化语言转换和图像 OCR 解析两个方面，对工具链的性能进行对比分析。前者关注模型是否能够稳定生成符合语法且语义完整的谓词表达，后者关注 OCR 输入质量对几何图像形式化解析结果的影响。
+
+\subsubsection{文本转换实验结果}
+
+为客观评估模型将自然语言转换为形式化语言的质量，实验使用语法合法率（Syntax Valid Rate, SVR）、约束召回率（Constraint Recall, CR）与精确匹配率（Exact Match, EM）三项核心指标。其具体定义如下：
+
+语法合法率（SVR）：衡量模型生成的形式化语言表达式是否符合目标的语法规范，能够被文本解析器\cite{lu2021intergps}成功编译而无语法错误。
+\begin{equation}
+    \mathrm{SVR} = \frac{N_{\mathrm{valid}}}{N_{\mathrm{total}}} \times 100\%,
+\end{equation}
+其中，$N_{\mathrm{total}}$ 为测试集样本总数，$N_{\mathrm{valid}}$ 为语法合法的样本数。
+
+约束召回率（CR）：评估模型对原始题目中关键几何条件与求解目标的覆盖程度。具体而言，本文将每条形式化语句视为一个独立约束项，并在谓词类型及其参数对象均匹配时认为该约束被成功召回。CR 统计所有样本中被正确生成的真实约束项占真实约束项总数的比例，因此能够反映模型是否遗漏题目中的重要条件，但不要求整道题目的形式化结果与标注完全一致。
+\begin{equation}
+    \mathrm{CR} = \frac{\sum_{i=1}^{N_{\mathrm{total}}} |C_{\mathrm{pred}}^{(i)} \cap C_{\mathrm{gt}}^{(i)}|}{\sum_{i=1}^{N_{\mathrm{total}}} |C_{\mathrm{gt}}^{(i)}|} \times 100\%,
+\end{equation}
+其中，$C_{\mathrm{pred}}^{(i)}$ 和 $C_{\mathrm{gt}}^{(i)}$ 分别表示第 $i$ 个样本中模型预测的约束集合与人工标注的真实约束集合。
+
+精确匹配率（EM）：要求模型生成的完整形式化结果与真实标签完全一致，或在抽象语法树上逻辑等价，即只有当一个样本中的所有约束项均被正确生成且不存在额外错误约束时，才记为匹配成功，是衡量下游符号求解可靠性的最严格标准。
+\begin{equation}
+    \mathrm{EM} = \frac{N_{\mathrm{match}}}{N_{\mathrm{total}}} \times 100\%,
+\end{equation}
+其中，$N_{\mathrm{match}}$ 为实现精确匹配的样本数量。
+
+为全面评估文本形式化转换模型的有效性，本章设置了两类对比基线：第一类是基于少样本提示（Few-shot Prompt）的通用大模型，这类模型不进行权重更新，仅依赖上下文学习能力来捕捉形式化语言的映射规律；第二类是同等参数规模（约 8B--9B）且经过相同特定任务微调的开源模型，用于验证不同基座模型在吸收垂直领域知识后的表现差异。
+
+各模型在测试集上的具体评估结果如表 \ref{tab:text_results} 所示。从整体对比结果可以看出，基于提示词的开源小模型（Llama-3.1-8B、GLM-4-9B、Qwen3-8B）在三项指标上整体偏低，其精确匹配率仅分布在 60.5\% 至 64.2\% 之间，尚不足以稳定支撑下游的符号求解或语义理解。相比之下，在少量样本提示的辅助下，闭源模型 GPT-4o mini、GPT-4o 以及大参数开源模型 DeepSeek-V3 均表现出更强的结构化生成能力，说明大规模模型在上下文模式归纳以及语法约束遵循方面具有明显优势。
+
+\begin{table}[htbp]
+    \centering
+    \caption{不同模型在文本到形式化语言转换任务上的性能对比（\%）}
+    \label{tab:text_results}
+    \small
+    \renewcommand{\arraystretch}{0.85}
+    \setlength{\tabcolsep}{6pt}
+    \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lccc}
+        \toprule
+        模型 & 语法合法率 & 约束召回率 & 精确匹配率 \\
+        \midrule
+
+        \multicolumn{4}{@{}l}{\small\textit{Few-shot Prompt-based}} \\
+        Llama-3.1-8B\cite{grattafiori2024llama}                & 80.1 & 73.2 & 60.5 \\
+        GLM-4-9B\cite{glm2024chatglm}                          & 81.3 & 74.7 & 62.4 \\
+        Qwen3-8B\cite{yang2025qwen3}                           & 82.6 & 75.6 & 64.2 \\
+        GPT-4o mini\cite{hurst2024gpt4o}                       & 92.1 & 89.7 & 84.5 \\
+        DeepSeek-V3\cite{liu2024deepseek}                      & 92.4 & \underline{90.5} & 85.9 \\
+        \textbf{GPT-4o\cite{hurst2024gpt4o}}                   & \textbf{94.5} & \textbf{92.8} & \textbf{90.2} \\
+
+        \cmidrule{1-4}
+
+        \multicolumn{4}{@{}l}{\small\textit{Fine-tuning-based (\textasciitilde 8B--9B)}} \\
+        Llama-3.1-8B$^*$\cite{grattafiori2024llama}            & 89.2 & 86.1 & 82.3 \\
+        GLM-4-9B$^*$\cite{glm2024chatglm}$^*$                  & 91.5 & 87.8 & 83.6 \\
+        \textbf{Qwen3-8B$^*$\cite{yang2025qwen3} (Ours)$^*$}   & \underline{92.8} & 90.2 & \underline{86.1} \\
+
+        \bottomrule
+    \end{tabular*}
+
+    \vspace{1ex}
+    \raggedright
+    \footnotesize 注：$^*$表示经过本文特定数据集微调后的模型。
+    \normalsize
+\end{table}
+
+进一步观察微调组可知，经过特定数据与 LoRA 微调后，开源小模型在文本到形式化语言转换任务上的性能均显著提升。其中，Qwen3-8B 的语法合法率、约束召回率与精确匹配率较未微调前分别提升了 10.2\%、14.6\% 与 21.9\%，并在语法合法率（92.8\%）与精确匹配率（86.1\%）上超过 GPT-4o mini 和 DeepSeek-V3，约束召回率（90.2\%）也与 DeepSeek-V3 的 90.5\% 基本接近。虽然其整体性能仍低于最优的 GPT-4o，但闭源模型受限于可控性与本地部署条件，DeepSeek-V3 等大参数模型部署时约需 680GB 文件空间；相比之下，微调后的 Qwen3-8B 仅需约 20GB 容量，更便于本地部署和系统集成，也更适合面向几何形式化转换这一专门任务进行优化。
+
+\subsubsection{图像 OCR 解析性能对比}
+
+为了量化评估 OCR 质量对下游图像形式化解析的影响，本实验在统一的 PGDPNet 解析框架下，对比了不同 OCR 输入来源下的解析性能。具体而言，对比基准包含四类：人工标注、微调后的 PaddleOCR（PaddleOCR-FT）、原生 PaddleOCR 以及通用识别大模型 DeepSeekOCR~\cite{wei2025deepseekocr}。以经人工严格校验后的图元（点、线、圆）及形式化语言结果为真实基准，统计各方法的正确率；同时，计算各方法预测结果中误检与冗余实例占其输出实例总数的比例，以此评估多余率。对比结果如图~\ref{fig:ocr_performance} 所示。
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/ocr_accuracy.pdf}
+        \caption{各方法识别正确率对比}
+        \label{subfig:ocr_accuracy}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/ocr_excess_rate.pdf}
+        \caption{各方法识别多余率对比}
+        \label{subfig:ocr_excess_rate}
+    \end{subfigure}
+
+    \caption{不同 OCR 模型在各几何图元及形式化语言上的识别性能对比}
+    \label{fig:ocr_performance}
+\end{figure}
+
+可以观察到，通用 OCR 模型在几何图表场景下存在明显瓶颈：原生 PaddleOCR 与 DeepSeekOCR 在形式化语言层面的正确率仅为 32\% 和 11\%，且多余率分别达到 44\% 和 45\%。这表明，通用 OCR 容易受到几何题图中微小目标、紧邻图元及复杂符号的干扰，从而影响后续 PGDPNet 的关系解析。相比之下，经过几何场景数据微调的 PaddleOCR-FT 性能显著提升，其在点和形式化语言上的正确率分别达到 83\% 和 76\%，并将形式化语言的多余率降至 23\%。尽管受限于几何图像本身较高的解析难度，自动方法在复杂图元上的表现仍与人工提供 OCR 输入时存在一定差距，但该对比实验说明了领域垂直训练的有效性。微调后的模型能够更好适应几何图像的分布特征，在保证基本解析精度的同时，显著降低后续构建同类大规模数据集时对人工 OCR 标注与校验的依赖。
+
 \xsubsection{数据质量分析}{Data Quality Analysis}
 
-% \xsubsection{数据集扩充策略}{Data Augmentation Strategies}
-% 如果是合成扩充，建议明确“只用于训练/仅作数据增强”，以及如何避免污染测试集）
-% 可以放到后面的求解模块中，用于训练。这里可以不写了。
+GeoLStep 不仅包含题目文本与几何图像，还进一步提供了参考解答、推理步骤数、辅助线信息以及图文两侧的形式化表示。因此，本章的数据质量不仅体现在原始题目的正确性上，还体现在多模态信息、过程级标注与形式化结果之间的一致性上。为保证该基准能够稳定支撑后续的过程评估与模型对比，本节从原始题目质量、结构化标注一致性、图文形式化结果可靠性以及数据划分独立性四个方面进行分析。
 
-% 从PGPS9K数据集扩充方式：
-% GLLava 论文中 重提问、答案掩盖 + 询问条件、图像扰动
-% GeoGramBench可以看看
-% GeoEval的方式，具体见ppt 几何问题数据集v2
+\paragraph{原始题目质量控制}
+本章数据来源于真实中考试卷与代表性模拟试卷。相较于网络问答平台或全自动合成题目，此类题目通常已经过命题、排版、校对和答案审阅等环节，题面规范性较强，且知识点覆盖和难度梯度较为稳定。在原始样本筛选阶段，本章进一步剔除了题面缺失、图像模糊、解析残缺、目标不明确或不适宜进行符号建模的样本，从源头上保证了题目内容的完整性与可求解性。对于综合题，则通过主干与子问拼接的方式将其拆分为独立样本，避免同一样本中存在多个目标混杂的问题，从而提升后续结构化标注与评测的一致性。
 
+\paragraph{结构化标注一致性控制}
+在样本整理完成后，本章对题目类型、最终答案、难度等级、辅助线需求、参考解答过程和推理步骤数等信息进行了统一标注。由于长链条几何题的关键难点在于连续推导过程，因此本章将“逻辑推理步骤”而非公式行数或文字分句作为步骤统计粒度，以更贴近真实求解中的关键中间结论传递。对于辅助线信息，则依据参考解答中是否显式构造新几何对象进行判断。整体上，标注过程采用“自动辅助生成—人工修订—统一复核”的方式完成：先由 OCR 与 MLLM 工具生成初始文本与步骤信息，再由人工结合原题、配图和参考解析进行修订，最后对存在歧义或标注不一致的样本进行统一复核。该流程在保证标注效率的同时，尽可能降低了单次自动识别或主观判断带来的偏差。
+
+\paragraph{图文形式化结果可靠性控制}
+考虑到图文形式化结果直接服务于后续的过程评估与符号推理，本章对文本侧与图像侧的形式化转换均设置了专门的质量控制环节。对于文本侧形式化结果，一方面通过语法合法性检查过滤括号不匹配、谓词名称错误、参数缺失等格式问题，另一方面通过人工校验确认谓词集合是否准确覆盖题干中的关键已知条件与待求目标。对于图像侧形式化结果，则先利用 OCR 与 PGDPNet 自动生成候选图元关系，再针对点名识别、图元漏检、关系误判等常见错误进行人工修正。前一小节中的对比实验也进一步说明，经过面向几何场景的微调后，文本转换模型与 OCR 模型均能够取得较高的结构化转换质量，从而为大规模构建过程中的自动化处理提供可靠支撑。
+
+\paragraph{数据划分与泄漏控制}
+为保证后续评测结果的可信性，本章在工具链训练、测试以及最终数据集整理过程中，注意保持不同用途样本之间的独立性。文本形式化转换任务所使用的测试集与微调训练数据严格正交，避免模型通过记忆训练样本而导致评估结果虚高。与此同时，最终 GeoLStep 数据集中保留了原始题面、配图、参考解析与结构化标注之间的对应关系，便于后续对异常样本进行追溯与再次核验。这样的组织方式既有利于保证当前基准构建的严谨性，也为后续数据扩展和误差分析预留了空间。
+
+综合来看，GeoLStep 的数据质量控制覆盖了从原始题目筛选、结构化标注、图文形式化转换到评测用数据独立划分的完整流程。该流程保证了数据集既保留真实教育场景中的题目复杂性，又具备支持过程级评估和符号化分析所需的结构化一致性，为后续基线实验和长链条几何推理方法研究提供了较为可靠的数据基础。
 
 % -------------------------------------------------------------------
 \xsection{评估协议}{Evaluation Protocol}
-
-% \xsubsection{任务定义}{Task Definition}
-% 基于前文构建的 GeoLStep 数据集，本章进一步设计了标准化的几何推理评测基准。在该基准下，几何问题求解任务可形式化定义为：给定一道几何题目的自然语言描述文本 $\mathcal{T}$ 与对应的几何图像 $\mathcal{I}$，模型需要输出最终求解结果 $\mathcal{A}$ 以及得到该结果的完整推理步骤序列 $\mathcal{S}$。
-
-% 在信息利用方面，规定受测模型可以直接利用输入的图文多模态信息，但不允许在求解过程中调用外部定理知识库或额外的符号求解工具。作出这一限制的目的在于尽可能排除外部工具带来的附加影响，从而在统一条件下比较不同方法在几何问题理解与推理任务中的性能差异。
 
 \xsubsection{评估指标}{Evaluation Metrics}
 % 数据集按 6:2:2 的比例随机划分为训练集、验证集和测试集。为了在防止数据泄露的同时保证各子集难度分布一致，本章采用了基于求解步长的分层采样，并进行了严格的交叉去重。

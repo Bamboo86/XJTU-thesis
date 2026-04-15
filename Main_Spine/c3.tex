@@ -1,6 +1,6 @@
 % !TeX root = ../main.tex
 
-\xchapter{面向长链条推理的多模态平面几何基准构建}{A Multi-modal Plane Geometry Benchmark for Long-step Reasoning}
+\xchapter{面向长链条推理的平面几何基准构建}{A Plane Geometry Benchmark for Long-step Reasoning}
 
 为了评估模型在复杂几何任务中的长链推理能力，本章构建了一个面向长链条平面几何推理的多模态评测基准。围绕这一目标，本章主要开展三方面工作：构建细粒度标注的长链条几何数据集，设计从原始图文到谓词逻辑表示的形式化工具链，并对多种代表性多模态大语言模型开展系统评测。
 
@@ -185,7 +185,7 @@
     \label{fig:image_parsing_pipeline}
 \end{figure}
 
-具体而言，首先使用半自动标注工具 PPOCRLabel~\footnote{https://github.com/PFCCLab/PPOCRLabel} 对本数据集中的几何图像进行细粒度标注，标注信息包括文本区域的边界框（BBox）坐标、对应文本内容，以及垂直、平行、角度等局部几何符号信息，如图 \ref{subfig:ocr_example} 所示。随后，在训练阶段以预训练的文本检测与识别模型作为初始参数，并利用上述标注数据对 OCR 模型进行微调，使其能够更好识别几何题图中的点名文本、垂直符号、平行符号以及角度标注等内容。微调结束后，将训练得到的 OCR 模型用于几何图像推理，获得题图中的文本框位置与识别结果，并将其输入 PGDPNet 框架。PGDPNet 进一步结合 OCR 结果与图像中的基础几何图元，对图像中的几何对象、符号标记及其空间关系进行解析，如图 \ref{subfig:pgdp_output} 所示，最终生成图像侧的形式化语言表示。
+具体而言，首先使用半自动标注工具 PPOCRLabel~\footnote{https://github.com/PFCCLab/PPOCRLabel} 对本数据集中的几何图像进行细粒度标注，标注信息包括文本区域的边界框（BBox）坐标、对应文本内容，以及垂直、平行、角度等局部几何符号信息，如图 \ref{subfig:ocr_example} 所示。随后，在训练阶段以预训练的文本检测与识别模型作为初始参数，并利用上述标注数据对 OCR 模型进行微调，使其能够更好识别几何题图中的标识文本、垂直符号、平行符号以及角度标注等内容。微调结束后，将训练得到的 OCR 模型用于几何图像推理，获得题图中的文本边界框位置与识别结果，并将其输入 PGDPNet 框架。PGDPNet 进一步结合 OCR 结果与图像中的基础几何图元，对图像中的几何对象、符号标记及其空间关系进行解析，如图 \ref{subfig:pgdp_output} 所示，最终生成图像侧的形式化语言表示。
 
 \begin{figure}[htbp]
     \centering
@@ -203,7 +203,7 @@
         \label{subfig:pgdp_output}
     \end{subfigure}
 
-    \caption{几何题图 OCR 标注与 PGDPNet 解析示例}
+    \caption{几何图像 OCR 标注与 PGDPNet 解析示例}
     \label{fig:ocr_pgdp_example}
 \end{figure}
 

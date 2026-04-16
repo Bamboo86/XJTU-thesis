@@ -148,14 +148,15 @@ GeoTSR 的整体框架如图~\ref{fig:c4_framework} 所示，主要包括纯文�
 \end{equation}
 其中，$\alpha_1$ 至 $\alpha_4$ 为各项奖励的权重系数。该轨迹总奖励随后用于 GRPO 中的组内相对优势估计，从而引导模型提高高质量多模态推理路径的生成概率。
 
+% 上述规则奖励的作用在于为模型提供比最终答案更细粒度的训练反馈。通过同时约束输出格式、步骤合法性和推导冗余性，模型能够在生成过程中逐步减少无效中间结论，并保持较为清晰的推理路径。这有助于缓解长链条几何推理中错误难以及时纠正、并在后续步骤中持续累积的问题。
+
 \xsubsection{优化目标与约束}{Optimization Objectives and Constraints}
 
-第二阶段的强化训练以第一阶段得到的策略模型作为初始化模型，使模型在已有文本推理能力的基础上进一步适应图文联合输入。与第一阶段相比，本阶段的优化目标不仅关注最终答案是否正确，还通过步骤级奖励约束中间推理过程，从而缓解多模态长链推理中的路径偏移和错误累积问题。
-
-具体而言，第一阶段训练完成后的策略模型记为 $\pi_{\theta}^{(1)}$，并以此作为第二阶段训练的初始策略，即
+第二阶段的强化训练以第一阶段得到的策略模型作为初始化模型，使模型在已有文本推理能力的基础上进一步适应图文联合输入。与第一阶段相比，本阶段的优化目标不仅关注最终答案是否正确，还通过步骤级奖励约束中间推理过程，从而缓解多模态长链推理中的路径偏移和错误累积问题。训练当中，第一阶段训练完成后的策略模型记为 $\pi_{\theta}^{(1)}$，并以此作为第二阶段训练的初始策略，即
 \begin{equation}
   \pi_{\theta,0}^{(2)} = \pi_{\theta}^{(1)}.
 \end{equation}
+
 在第二阶段训练开始时，系统冻结当前初始策略的副本作为参考策略 $\pi_{\mathrm{ref}}$，用于 KL 约束；随后，当前策略 $\pi_{\theta}$ 在多模态输入和步骤级奖励的共同作用下进行更新。对于每条采样轨迹，系统首先根据式中定义的 $R^{(2)}(\tau)$ 计算轨迹总奖励，并据此完成 GRPO 的组内相对优势估计；同时，通过 KL 散度限制当前策略相对于参考策略的更新幅度，避免强化训练过程中发生过大的策略偏移。其计算形式可写为：
 \begin{equation}
   \mathbb{D}_{\mathrm{KL}}(\pi_{\theta}\Vert \pi_{\mathrm{ref}})
@@ -163,66 +164,125 @@ GeoTSR 的整体框架如图~\ref{fig:c4_framework} 所示，主要包括纯文�
   \sum_{a}\pi_{\theta}(a\mid s)\log\frac{\pi_{\theta}(a\mid s)}{\pi_{\mathrm{ref}}(a\mid s)}.
 \end{equation}
 
-需要说明的是，第一阶段模型在本阶段中的作用主要是提供初始化参数，而非直接作为持续更新的训练目标。参考策略仅作为冻结分布用于约束当前策略的更新幅度。通过这种设计，模型既能够继承第一阶段形成的长链条推理能力，又能够在第二阶段充分学习图文联合输入下的推理策略，从而提升复杂几何任务中的过程稳定性。
+% 需要说明的是，第一阶段模型在本阶段中的作用主要是提供初始化参数，而非直接作为持续更新的训练目标。参考策略仅作为冻结分布用于约束当前策略的更新幅度。通过这种设计，模型既能够继承第一阶段形成的长链条推理能力，又能够在第二阶段充分学习图文联合输入下的推理策略，从而提升复杂几何任务中的过程稳定性。
 
 % ==========================================================
 \xsection{训练总体流程}{Overall Algorithm Pipeline}
 
-本节对本章提出的 GeoTSR 方法进行总结，并以算法形式描述其训练过程。整体流程分为纯文本推理增强和多模态过程强化两个阶段，前者用于建立基础长链条推理能力，后者在此基础上进一步引入图文联合输入与步骤级反馈，具体流程如算法 \ref{alg:two_stage} 所示。
+GeoTSR 整体流程分为纯文本推理增强和多模态过程强化两个阶段，前者用于建立基础长链条推理能力，后者在此基础上进一步引入图文联合输入与步骤级反馈，算法形式的训练过程如算法 \ref{alg:two_stage} 所示。
+
+% \begin{algorithm2e}[H]
+%   % --- 解决标题格式与名称问题 ---
+%   \renewcommand{\algorithmcfname}{算法} % 将 "Algorithm" 替换为 "算法"
+%   \SetAlCapNameFnt{\small}              % 将 "算法 X" 标签的字体设为 small
+%   \SetAlCapFnt{\small}                  % 将 caption 文本内容的字体设为 small
+%   % ------------------------------
+
+%   \setstretch{0.7} % 将行间距设置为正常值的 0.7 倍
+%   \small
+%   \SetAlgoLined
+%   % 自定义 Input 和 Output 标签
+%   \SetKwInput{KwInput}{输入}
+%   \SetKwInput{KwOutput}{输出}
+
+%   \KwInput{多模态基座模型 $\pi_{\theta}$，纯文本数据集 $\mathcal{D}_{text}$，多模态几何数据集 $\mathcal{D}_{geo}$，弱符号验证器 $\mathcal{V}$，组采样大小 $G$}
+%   \KwOutput{增强后的多模态几何推理模型 $\pi_{final}$}
+
+%   \tcp{阶段一：纯文本长链条推理增强}
+%   冻结初始策略副本作为参考策略 $\pi_{\mathrm{ref}} \leftarrow \mathrm{stopgrad}(\pi_{\theta})$\;
+%   \While{阶段一策略未收敛}{
+%   从 $\mathcal{D}_{text}$ 中采样纯文本问题 $q$\;
+%   使用采样策略 $\pi_{\theta_{\mathrm{old}}}$ 并行采样 $G$ 条推理轨迹 $\{\tau_i\}_{i=1}^G$\;
+%   \For{每条轨迹 $\tau_i$}{
+%   调用验证器 $\mathcal{V}$ 进行全局解析与核查，计算轨迹总奖励：
+%   $R_i^{(1)} = \lambda_1 R_{\mathrm{fmt}} + \lambda_2 R_{\mathrm{ans}} + \lambda_3 R_{\mathrm{ver}}$\;
+%   }
+%   根据组内奖励 $\{R_i^{(1)}\}_{i=1}^G$ 计算相对优势 $A_i$\;
+%   引入基于 $\pi_{\mathrm{ref}}$ 的 KL 散度约束，利用 GRPO 更新策略参数 $\theta$\;
+%   }
+%   得到阶段一策略模型 $\pi_{\theta}^{(1)} \leftarrow \pi_{\theta}$\;
+
+%   \tcp{阶段二：多模态过程强化}
+%   以阶段一模型初始化第二阶段策略 $\pi_{\theta} \leftarrow \pi_{\theta}^{(1)}$\;
+%   冻结第二阶段初始策略副本作为参考策略 $\pi_{\mathrm{ref}} \leftarrow \mathrm{stopgrad}(\pi_{\theta})$\;
+%   \While{阶段二策略未收敛}{
+%   从 $\mathcal{D}_{geo}$ 中采样多模态几何问题 $q_{vis}$\;
+%   使用采样策略 $\pi_{\theta_{\mathrm{old}}}$ 并行采样 $G$ 条推理轨迹 $\{\tau_j\}_{j=1}^G$\;
+%   \For{每条轨迹 $\tau_j$}{
+%   初始化轨迹总奖励 $R_j^{(2)} \leftarrow 0$\;
+%   \For{轨迹中的每个中间推理步骤 $t=1$ \KwTo $T_j$}{
+%   调用验证器 $\mathcal{V}$ 进行格式校验、步骤检验与冗余判断\;
+%   计算当前步骤级奖励：
+%   $r_{t,j}^{(2)} = \alpha_1 r_{\mathrm{fmt}} + \alpha_2 r_{\mathrm{ver}} - \alpha_3 r_{\mathrm{red}}$\;
+%   $R_j^{(2)} \leftarrow R_j^{(2)} + r_{t,j}^{(2)}$\;
+%   }
+%   调用验证器 $\mathcal{V}$ 比对最终答案\;
+%   叠加最终答案匹配奖励：
+%   $R_j^{(2)} \leftarrow R_j^{(2)} + \alpha_4 R_{\mathrm{ans}}$\;
+%   }
+%   根据组内奖励 $\{R_j^{(2)}\}_{j=1}^G$ 计算相对优势 $A_j$\;
+%   引入基于 $\pi_{\mathrm{ref}}$ 的 KL 散度约束，利用 GRPO 更新策略参数 $\theta$\;
+%   }
+%   $\pi_{final} \leftarrow \pi_{\theta}$\;
+%   \caption{GeoTSR 两阶段长链条推理增强算法}
+%   \label{alg:two_stage}
+% \end{algorithm2e}
 
 \begin{algorithm2e}[H]
-  % --- 解决标题格式与名称问题 ---
-  \renewcommand{\algorithmcfname}{算法} % 将 "Algorithm" 替换为 "算法"
-  \SetAlCapNameFnt{\small}              % 将 "算法 X" 标签的字体设为 small
-  \SetAlCapFnt{\small}                  % 将 caption 文本内容的字体设为 small
-  % ------------------------------
+  \renewcommand{\algorithmcfname}{算法}
+  \SetAlCapNameFnt{\small}
+  \SetAlCapFnt{\small}
 
-  \setstretch{0.7} % 将行间距设置为正常值的 0.7 倍
+  \setstretch{0.7}
   \small
   \SetAlgoLined
-  % 自定义 Input 和 Output 标签
+
   \SetKwInput{KwInput}{输入}
   \SetKwInput{KwOutput}{输出}
 
-  \KwInput{多模态基座模型 $\pi_{\theta}$，纯文本数据集 $\mathcal{D}_{text}$，多模态几何数据集 $\mathcal{D}_{geo}$，弱符号验证器 $\mathcal{V}$，组采样大小 $G$}
+  \KwInput{基座策略模型 $\pi_{\theta}$，纯文本数据集 $\mathcal{D}_{text}$，多模态几何数据集 $\mathcal{D}_{geo}$，弱符号验证器 $\mathcal{V}$，组采样大小 $G$}
   \KwOutput{增强后的多模态几何推理模型 $\pi_{final}$}
 
-  \tcp{阶段一：纯文本长链条推理增强}
-  冻结初始策略副本作为参考策略 $\pi_{\mathrm{ref}} \leftarrow \mathrm{stopgrad}(\pi_{\theta})$\;
+  $\pi_{\mathrm{ref}} \leftarrow \mathrm{stopgrad}(\pi_{\theta})$ \tcp*[r]{阶段一：纯文本增强}
   \While{阶段一策略未收敛}{
-  从 $\mathcal{D}_{text}$ 中采样纯文本问题 $q$\;
-  使用采样策略 $\pi_{\theta_{\mathrm{old}}}$ 并行采样 $G$ 条推理轨迹 $\{\tau_i\}_{i=1}^G$\;
-  \For{每条轨迹 $\tau_i$}{
-  调用验证器 $\mathcal{V}$ 进行全局解析与核查，计算轨迹总奖励：
-  $R_i^{(1)} = \lambda_1 R_{\mathrm{fmt}} + \lambda_2 R_{\mathrm{ans}} + \lambda_3 R_{\mathrm{ver}}$\;
-  }
-  根据组内奖励 $\{R_i^{(1)}\}_{i=1}^G$ 计算相对优势 $A_i$\;
-  引入基于 $\pi_{\mathrm{ref}}$ 的 KL 散度约束，利用 GRPO 更新策略参数 $\theta$\;
-  }
-  得到阶段一策略模型 $\pi_{\theta}^{(1)} \leftarrow \pi_{\theta}$\;
+  从 $\mathcal{D}_{text}$ 中采样问题 $q$\;
+  使用 $\pi_{\theta_{\mathrm{old}}}$ 采样 $G$ 条轨迹 $\{\tau_i\}_{i=1}^{G}$\;
 
-  \tcp{阶段二：多模态过程强化}
-  以阶段一模型初始化第二阶段策略 $\pi_{\theta} \leftarrow \pi_{\theta}^{(1)}$\;
-  冻结第二阶段初始策略副本作为参考策略 $\pi_{\mathrm{ref}} \leftarrow \mathrm{stopgrad}(\pi_{\theta})$\;
+  \For{每条轨迹 $\tau_i$}{
+  调用 $\mathcal{V}$ 对 $\tau_i$ 进行轨迹级检验\;
+  计算轨迹奖励 $R_i^{(1)}$\;
+  }
+
+  根据 $\{R_i^{(1)}\}_{i=1}^{G}$ 计算组内优势 $\{A_i\}_{i=1}^{G}$\;
+  基于 $\pi_{\mathrm{ref}}$ 的 KL 约束，使用 GRPO 更新 $\theta$\;
+  }
+
+  $\pi_{\theta}^{(1)} \leftarrow \pi_{\theta}$\;
+
+  $\pi_{\theta} \leftarrow \pi_{\theta}^{(1)},\ \pi_{\mathrm{ref}} \leftarrow \mathrm{stopgrad}(\pi_{\theta})$ \tcp*[r]{阶段二：多模态强化}
   \While{阶段二策略未收敛}{
-  从 $\mathcal{D}_{geo}$ 中采样多模态几何问题 $q_{vis}$\;
-  使用采样策略 $\pi_{\theta_{\mathrm{old}}}$ 并行采样 $G$ 条推理轨迹 $\{\tau_j\}_{j=1}^G$\;
+  从 $\mathcal{D}_{geo}$ 中采样多模态问题 $q_{vis}$\;
+  使用 $\pi_{\theta_{\mathrm{old}}}$ 采样 $G$ 条轨迹 $\{\tau_j\}_{j=1}^{G}$\;
+
   \For{每条轨迹 $\tau_j$}{
-  初始化轨迹总奖励 $R_j^{(2)} \leftarrow 0$\;
-  \For{轨迹中的每个中间推理步骤 $t=1$ \KwTo $T_j$}{
-  调用验证器 $\mathcal{V}$ 进行格式校验、步骤检验与冗余判断\;
-  计算当前步骤级奖励：
-  $r_{t,j}^{(2)} = \alpha_1 r_{\mathrm{fmt}} + \alpha_2 r_{\mathrm{ver}} - \alpha_3 r_{\mathrm{red}}$\;
+  $R_j^{(2)} \leftarrow 0$\;
+
+  \For{每个中间步骤 $t=1$ \KwTo $T_j$}{
+  调用 $\mathcal{V}$ 对步骤 $t$ 进行检验\;
+  计算步骤奖励 $r_{t,j}^{(2)}$\;
   $R_j^{(2)} \leftarrow R_j^{(2)} + r_{t,j}^{(2)}$\;
   }
-  调用验证器 $\mathcal{V}$ 比对最终答案\;
-  叠加最终答案匹配奖励：
+
+  调用 $\mathcal{V}$ 检验最终答案\;
   $R_j^{(2)} \leftarrow R_j^{(2)} + \alpha_4 R_{\mathrm{ans}}$\;
   }
-  根据组内奖励 $\{R_j^{(2)}\}_{j=1}^G$ 计算相对优势 $A_j$\;
-  引入基于 $\pi_{\mathrm{ref}}$ 的 KL 散度约束，利用 GRPO 更新策略参数 $\theta$\;
+
+  根据 $\{R_j^{(2)}\}_{j=1}^{G}$ 计算组内优势 $\{A_j\}_{j=1}^{G}$\;
+  基于 $\pi_{\mathrm{ref}}$ 的 KL 约束，使用 GRPO 更新 $\theta$\;
   }
+
   $\pi_{final} \leftarrow \pi_{\theta}$\;
+
   \caption{GeoTSR 两阶段长链条推理增强算法}
   \label{alg:two_stage}
 \end{algorithm2e}

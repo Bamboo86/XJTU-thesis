@@ -56,7 +56,7 @@ GeoTSR 的整体框架如图~\ref{fig:c4_framework} 所示，主要包括纯文�
 
 \xsubsection{基于组相对策略优化}{Group Relative Policy Optimization}
 
-近年来，强化学习在大语言模型推理能力增强中的作用受到广泛关注~\cite{chen2024improving,zhang2024restmcts}，并逐渐成为复杂推理任务中的重要优化手段。DeepSeek-R1~\cite{guo2025deepseekr1} 工作表明，基于强化学习的训练方式能够有效提升模型的长链条推理能力。受此启发，并结合大规模长文本训练对显存开销和训练稳定性的要求，本章并未采用依赖额外价值模型的近端策略优化（Proximal Policy Optimization, PPO）算法\cite{schulman2017ppo}，而是选用组相对策略优化（Group Relative Policy Optimization, GRPO）算法~\cite{guo2025deepseekr1}，对两阶段训练过程中的策略模型进行迭代更新。
+近年来，强化学习在大语言模型推理能力增强中的作用受到广泛关注~\cite{chen2024improving,zhang2024restmcts,liu2019deeprl}，并逐渐成为复杂推理任务中的重要优化手段。DeepSeek-R1~\cite{guo2025deepseekr1} 工作表明，基于强化学习的训练方式能够有效提升模型的长链条推理能力。受此启发，并结合大规模长文本训练对显存开销和训练稳定性的要求，本章并未采用依赖额外价值模型的近端策略优化（Proximal Policy Optimization, PPO）算法\cite{schulman2017ppo}，而是选用组相对策略优化（Group Relative Policy Optimization, GRPO）算法~\cite{guo2025deepseekr1}，对两阶段训练过程中的策略模型进行迭代更新。
 
 对于长链条几何推理任务，同一道题往往可以生成多条不同的推理路径。例如，对于同一角度或长度的求解，模型可能从三角形性质、平行线关系或相似关系等不同角度展开推导。GRPO 通过对同一问题下多个候选解答进行组内比较来估计相对优势，无需额外训练价值模型，因而更适合几何推理中常见的同题多路径训练场景，也有利于降低长序列训练中的计算开销并保持训练过程的稳定性。
 

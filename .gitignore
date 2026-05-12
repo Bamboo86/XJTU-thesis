@@ -357,3 +357,5 @@ TSWLatexianTemp*
 !.vscode
 .vscode/*
 !.vscode/settings.json
+
+Build/

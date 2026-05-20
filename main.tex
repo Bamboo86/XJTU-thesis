@@ -156,6 +156,20 @@
   \setlength{\belowdisplayshortskip}{4pt plus 2pt minus 2pt}
 }
 
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,fit}
+% listings 源码标题格式设置
+\usepackage{listings}
+\usepackage{caption}
+
+\DeclareCaptionFont{normalfont}{\normalfont}
+
+\captionsetup[lstlisting]{
+    font=small,
+    labelfont=normalfont,
+    textfont=normalfont,
+    skip=2pt
+}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 注意：根据校方要求，以下所有页面顺序不可调整

@@ -337,7 +337,7 @@ GeoLStep 数据集中的每条样本均由原始题目文本和对应几何图�
   \setlength{\tabcolsep}{6pt}
   \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lccc}
     \toprule
-    模型 & 语法合法率 & 约束召回率 & 精确匹配率 \\
+    模型 & 语法合法率$\uparrow$ & 约束召回率$\uparrow$ & 精确匹配率$\uparrow$ \\
     \midrule
 
     \multicolumn{4}{@{}l}{\textbf{\textit{Few-shot Prompt-based}}} \\
@@ -449,7 +449,7 @@ GeoLStep 数据集中的每条样本均由原始题目文本和对应几何图�
   \renewcommand{\arraystretch}{1.15}
   \begin{tabularx}{\textwidth}{XYY}
     \toprule
-    评估模型             & 步骤评估一致率        & 答案评估一致率        \\
+    评估模型             & 步骤评估一致率$\uparrow$        & 答案评估一致率$\uparrow$        \\
     \midrule
     Claude-4.5       & 91.88          & 96.67          \\
     GPT-4o           & 91.95          & 97.08          \\
@@ -540,7 +540,7 @@ Gemini-2.5-Pro~\cite{comanici2025gemini25}：作为具备较强多模态理解�
 
 \begin{table}[htbp]
   \centering
-  \caption{不同模型在各个推理步数区间下的性能对比}
+  \caption{不同模型在各个推理步数区间下的性能对比（\%）}
   \label{tab:model_comparison_final}
   \small
   \renewcommand{\arraystretch}{0.8}
